@@ -151,6 +151,8 @@ export default function Checkout() {
   const [deliveryType, setDeliveryType] = useState<'Standard' | 'Express'>('Standard');
   const [transactionId, setTransactionId] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [isUpiPaymentOpen, setIsUpiPaymentOpen] = useState(false);
+  const paymentSectionRef = useRef<HTMLDivElement>(null);
 
   // Status
   const [isProcessing, setIsProcessing] = useState(false);
@@ -409,8 +411,26 @@ export default function Checkout() {
     if (isBelowMin || items.length === 0) return;
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    if (paymentMethod === 'upi' && !resolvedUpiId) { setError('UPI ID is not configured. Add the store UPI ID in admin settings before accepting UPI payment.'); return; }
-    if (paymentMethod === 'upi' && !transactionId.trim()) { setError('Transaction ID is required.'); return; }
+    if (paymentMethod === 'upi') {
+      if (!resolvedUpiId) {
+        setError('UPI ID is not configured. Add the store UPI ID in admin settings before accepting UPI payment.');
+        paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      if (!isUpiPaymentOpen) {
+        setError('');
+        setIsUpiPaymentOpen(true);
+        setTimeout(() => paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        return;
+      }
+
+      if (!transactionId.trim()) {
+        setError('Transaction ID is required after payment.');
+        paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+    }
     setIsProcessing(true); setError('');
     try {
       const oid = generateOrderId();
@@ -929,7 +949,7 @@ export default function Checkout() {
           {/* RIGHT SIDE: Address & Payment */}
           <div className="md:col-span-5 space-y-4 sticky top-24">
             {/* DELIVERY ADDRESS */}
-            <div className="bg-white rounded-[20px] p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-[#E8D8D1]/30">
+            <div ref={paymentSectionRef} className="bg-white rounded-[20px] p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-[#E8D8D1]/30">
               <h3 className="font-bold text-[#8E5E4F] text-sm mb-4 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[#B47A67]" /> Delivery Location
               </h3>
@@ -1036,7 +1056,7 @@ export default function Checkout() {
                     <div className="text-sm font-bold text-[#8E5E4F]">Pay Online</div>
                     <div className="text-xs text-[#8E5E4F]/50">{isRazorpayConfigured ? 'Cards, UPI, Net Banking via Razorpay' : 'Coming soon'}</div>
                   </div>
-                  <input type="radio" name="payment" checked={paymentMethod === 'razorpay'} onChange={() => isRazorpayConfigured && setPaymentMethod('razorpay')} disabled={!isRazorpayConfigured} className="accent-[#B47A67] w-4 h-4" />
+                  <input type="radio" name="payment" checked={paymentMethod === 'razorpay'} onChange={() => { if (isRazorpayConfigured) { setPaymentMethod('razorpay'); setIsUpiPaymentOpen(false); } }} disabled={!isRazorpayConfigured} className="accent-[#B47A67] w-4 h-4" />
                 </label>
 
                 <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'upi' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white'}`}>
@@ -1047,10 +1067,10 @@ export default function Checkout() {
                     <div className="text-sm font-bold text-[#8E5E4F]">Pay by UPI QR</div>
                     <div className="text-xs text-[#8E5E4F]/50">Scan QR, then enter transaction ID</div>
                   </div>
-                  <input type="radio" name="payment" checked={paymentMethod === 'upi'} onChange={() => setPaymentMethod('upi')} className="accent-[#B47A67] w-4 h-4" />
+                  <input type="radio" name="payment" checked={paymentMethod === 'upi'} onChange={() => { setPaymentMethod('upi'); setIsUpiPaymentOpen(false); }} className="accent-[#B47A67] w-4 h-4" />
                 </label>
 
-                {paymentMethod === 'upi' && (
+                {paymentMethod === 'upi' && isUpiPaymentOpen && (
                   <div className="rounded-2xl border border-[#E8D8D1] bg-[#FBF6F3] p-4">
                     {resolvedUpiId ? (
                       <div className="text-center">
@@ -1169,7 +1189,7 @@ export default function Checkout() {
                 disabled={isBelowMin || items.length === 0 || isProcessing}
                 className="w-full py-4 bg-[#B47A67] text-white rounded-xl text-sm font-black tracking-widest uppercase hover:bg-[#8E5E4F] transition-all shadow-xl shadow-[#B47A67]/20 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isProcessing ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>{isBelowMin ? 'Below Minimum Amount' : 'Place Order'} <ChevronRight className="w-5 h-5" /></>}
+                {isProcessing ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>{isBelowMin ? 'Below Minimum Amount' : paymentMethod === 'upi' && isUpiPaymentOpen ? 'Confirm UPI Payment' : 'Place Order'} <ChevronRight className="w-5 h-5" /></>}
               </button>
             </div>
           </div>
@@ -1190,7 +1210,7 @@ export default function Checkout() {
                 disabled={isBelowMin || items.length === 0 || isProcessing}
                 className="flex-1 py-3.5 bg-[#B47A67] text-white rounded-xl text-sm font-bold tracking-widest uppercase hover:bg-[#8E5E4F] transition-all shadow-md shadow-[#B47A67]/20 disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isProcessing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>{isBelowMin ? 'Below Min' : 'Place Order'} <ChevronRight className="w-4 h-4" /></>}
+                {isProcessing ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>{isBelowMin ? 'Below Min' : paymentMethod === 'upi' && isUpiPaymentOpen ? 'Confirm Pay' : 'Place Order'} <ChevronRight className="w-4 h-4" /></>}
               </button>
             </div>
           </div>
