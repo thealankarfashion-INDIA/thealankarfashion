@@ -21,6 +21,16 @@ const DEFAULT_UPI_ID = import.meta.env.VITE_UPI_ID || "";
 const DEFAULT_UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Thealankar";
 const isRazorpayConfigured = Boolean(RAZORPAY_KEY_ID);
 
+const getGPayLink = (upiLink: string) => {
+  const query = upiLink.split("?")[1] || "";
+  return query ? `tez://upi/pay?${query}` : upiLink;
+};
+
+const openUpiLink = (upiLink: string, app: "gpay" | "upi") => {
+  if (!upiLink) return;
+  window.location.href = app === "gpay" ? getGPayLink(upiLink) : upiLink;
+};
+
 export default function Payment() {
   const { items, cartTotal, clearCart } = useCart();
   const [, setLocation] = useLocation();
@@ -243,6 +253,27 @@ export default function Payment() {
                         <p className="text-sm text-[#8E5E4F] mb-4">Scan the QR code below using your UPI app (GPay, PhonePe, Paytm) to pay <strong>₹{orderTotal.toFixed(2)}</strong></p>
                         {resolvedUpiId ? <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiLink)}`} alt="UPI QR Code" className="w-40 h-40 mx-auto border border-[#E8D8D1] rounded-sm mb-4" /> : <div className="text-[#8E5E4F]/40 text-sm py-4">UPI ID not configured in admin settings.</div>}
                         <p className="text-xs text-[#8E5E4F]/60 font-mono bg-[#F7F1EE] py-2 rounded-sm">{resolvedUpiId || 'Not Configured'}</p>
+                        {resolvedUpiId && (
+                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              onClick={() => openUpiLink(upiLink, "gpay")}
+                              className="rounded-sm bg-[#B47A67] px-4 py-3 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-[#A86F5C]"
+                            >
+                              Open GPay
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openUpiLink(upiLink, "upi")}
+                              className="rounded-sm border border-[#D8B8AA] bg-white px-4 py-3 text-xs font-bold uppercase tracking-widest text-[#8E5E4F] transition-colors hover:border-[#B47A67]"
+                            >
+                              Any UPI App
+                            </button>
+                            <p className="sm:col-span-2 text-[11px] text-[#8E5E4F]/55">
+                              On mobile, GPay opens with this amount filled.
+                            </p>
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-4 pt-4 border-t border-[#E8D8D1]">
                         <div>

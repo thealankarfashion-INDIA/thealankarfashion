@@ -31,6 +31,16 @@ const DEFAULT_UPI_ID = import.meta.env.VITE_UPI_ID || "";
 const DEFAULT_UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Thealankar";
 const isRazorpayConfigured = Boolean(RAZORPAY_KEY_ID);
 
+const getGPayLink = (upiLink: string) => {
+  const query = upiLink.split("?")[1] || "";
+  return query ? `tez://upi/pay?${query}` : upiLink;
+};
+
+const openUpiLink = (upiLink: string, app: "gpay" | "upi") => {
+  if (!upiLink) return;
+  window.location.href = app === "gpay" ? getGPayLink(upiLink) : upiLink;
+};
+
 const FallbackImage = ({ src, alt, className }: { src?: string; alt?: string; className?: string }) => {
   const [error, setError] = useState(false);
 
@@ -1081,6 +1091,23 @@ export default function Checkout() {
                         />
                         <p className="mt-3 text-xs text-[#8E5E4F]/60">UPI ID</p>
                         <p className="font-mono text-sm font-bold text-[#8E5E4F] break-all">{resolvedUpiId}</p>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openUpiLink(upiLink, "gpay")}
+                            className="rounded-xl bg-white border border-[#E8D8D1] px-3 py-2 text-sm font-bold text-[#8E5E4F] hover:border-[#B47A67] hover:text-[#B47A67] transition-colors"
+                          >
+                            GPay
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openUpiLink(upiLink, "upi")}
+                            className="rounded-xl bg-[#B47A67] px-3 py-2 text-sm font-bold text-white hover:bg-[#8E5E4F] transition-colors"
+                          >
+                            Any UPI App
+                          </button>
+                        </div>
+                        <p className="mt-2 text-[10px] text-[#8E5E4F]/45">On mobile, GPay opens the app with this amount filled.</p>
                       </div>
                     ) : (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
