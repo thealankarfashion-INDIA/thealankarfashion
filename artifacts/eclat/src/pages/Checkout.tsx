@@ -26,6 +26,10 @@ import PaymentProgressAnimation from '@/components/payment/PaymentProgressAnimat
 import AnimatedCross from '@/components/payment/AnimatedCross';
 const cls = "w-full bg-white/60 border border-[#E8D8D1] rounded-sm px-4 py-3 text-sm text-[#8E5E4F] placeholder:text-[#8E5E4F]/30 focus:outline-none focus:border-[#B47A67] transition-colors";
 const lbl = "block text-xs tracking-widest uppercase text-[#8E5E4F]/70 mb-2";
+const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+const DEFAULT_UPI_ID = import.meta.env.VITE_UPI_ID || "";
+const DEFAULT_UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Thealankar";
+const isRazorpayConfigured = Boolean(RAZORPAY_KEY_ID);
 
 const FallbackImage = ({ src, alt, className }: { src?: string; alt?: string; className?: string }) => {
   const [error, setError] = useState(false);
@@ -131,7 +135,7 @@ export default function Checkout() {
   const [walletUsagePercent, setWalletUsagePercent] = useState(50);
 
   // Store settings & related products
-  const [storeSettings, setStoreSettings] = useState({ minOrderAmount: 0, upiId: '', upiPayeeName: 'Thealankar' });
+  const [storeSettings, setStoreSettings] = useState({ minOrderAmount: 0, upiId: DEFAULT_UPI_ID, upiPayeeName: DEFAULT_UPI_PAYEE_NAME });
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
 
   // Form & Address Modal
@@ -143,7 +147,7 @@ export default function Checkout() {
   const [showNoteInput, setShowNoteInput] = useState(false);
 
   // Payment & Delivery Option
-  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'upi'>('razorpay');
+  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'upi'>(isRazorpayConfigured ? 'razorpay' : 'upi');
   const [deliveryType, setDeliveryType] = useState<'Standard' | 'Express'>('Standard');
   const [transactionId, setTransactionId] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
@@ -180,7 +184,9 @@ export default function Checkout() {
   const deliveryCharge = deliveryType === 'Express' ? expressDelivery : standardDelivery;
   const total = baseSubtotal + deliveryCharge;
   const isBelowMin = storeSettings.minOrderAmount > 0 && cartTotal < storeSettings.minOrderAmount;
-  const upiLink = storeSettings.upiId ? buildUpiLink(storeSettings.upiId, storeSettings.upiPayeeName, total, 'ODR') : '';
+  const resolvedUpiId = storeSettings.upiId.trim();
+  const resolvedUpiPayeeName = storeSettings.upiPayeeName.trim() || DEFAULT_UPI_PAYEE_NAME;
+  const upiLink = resolvedUpiId ? buildUpiLink(resolvedUpiId, resolvedUpiPayeeName, total, 'ODR') : '';
 
   useEffect(() => {
     try {
@@ -188,7 +194,11 @@ export default function Checkout() {
       const unsub1 = onSnapshot(doc(db, 'settings', 'storeSettings'), snap => {
         if (snap.exists()) {
           const d = snap.data();
-          setStoreSettings({ minOrderAmount: d.minOrderAmount || 0, upiId: d.upiId || '', upiPayeeName: d.upiPayeeName || 'Thealankar' });
+          setStoreSettings({
+            minOrderAmount: d.minOrderAmount || 0,
+            upiId: d.upiId || DEFAULT_UPI_ID,
+            upiPayeeName: d.upiPayeeName || DEFAULT_UPI_PAYEE_NAME,
+          });
         }
       });
       const q = query(collection(db, 'offers'), orderBy('order', 'asc'));
@@ -344,11 +354,16 @@ export default function Checkout() {
   };
 
   const handleRazorpay = async (oid: string) => {
+    if (!isRazorpayConfigured) {
+      setError('Online payment is not configured yet. Please use UPI payment.');
+      setIsProcessing(false);
+      return;
+    }
     const loaded = await loadRazorpayScript();
     if (!loaded) { setError('Failed to load payment gateway.'); setIsProcessing(false); return; }
     const paymentOrder = await createRazorpayOrder(oid);
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      key: RAZORPAY_KEY_ID,
       amount: paymentOrder.amount,
       currency: paymentOrder.currency,
       order_id: paymentOrder.razorpayOrderId,
@@ -394,6 +409,7 @@ export default function Checkout() {
     if (isBelowMin || items.length === 0) return;
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    if (paymentMethod === 'upi' && !resolvedUpiId) { setError('UPI ID is not configured. Add the store UPI ID in admin settings before accepting UPI payment.'); return; }
     if (paymentMethod === 'upi' && !transactionId.trim()) { setError('Transaction ID is required.'); return; }
     setIsProcessing(true); setError('');
     try {
@@ -1012,17 +1028,68 @@ export default function Checkout() {
                 <CreditCard className="w-4 h-4 text-[#B47A67]" /> Payment Method
               </h3>
               <div className="space-y-3">
-                <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'razorpay' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white'}`}>
+                <label className={`flex items-center gap-3 p-3 border rounded-xl transition-all ${isRazorpayConfigured ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${paymentMethod === 'razorpay' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white'}`}>
                   <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 border border-[#E8D8D1]">
                     <CreditCard className={`w-4 h-4 ${paymentMethod === 'razorpay' ? 'text-[#B47A67]' : 'text-[#8E5E4F]/40'}`} />
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-bold text-[#8E5E4F]">Pay Online</div>
-                    <div className="text-xs text-[#8E5E4F]/50">Cards, UPI, Net Banking via Razorpay</div>
+                    <div className="text-xs text-[#8E5E4F]/50">{isRazorpayConfigured ? 'Cards, UPI, Net Banking via Razorpay' : 'Coming soon'}</div>
                   </div>
-                  <input type="radio" name="payment" checked={paymentMethod === 'razorpay'} onChange={() => setPaymentMethod('razorpay')} className="accent-[#B47A67] w-4 h-4" />
+                  <input type="radio" name="payment" checked={paymentMethod === 'razorpay'} onChange={() => isRazorpayConfigured && setPaymentMethod('razorpay')} disabled={!isRazorpayConfigured} className="accent-[#B47A67] w-4 h-4" />
                 </label>
 
+                <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'upi' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white'}`}>
+                  <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 border border-[#E8D8D1]">
+                    <Smartphone className={`w-4 h-4 ${paymentMethod === 'upi' ? 'text-[#B47A67]' : 'text-[#8E5E4F]/40'}`} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-bold text-[#8E5E4F]">Pay by UPI QR</div>
+                    <div className="text-xs text-[#8E5E4F]/50">Scan QR, then enter transaction ID</div>
+                  </div>
+                  <input type="radio" name="payment" checked={paymentMethod === 'upi'} onChange={() => setPaymentMethod('upi')} className="accent-[#B47A67] w-4 h-4" />
+                </label>
+
+                {paymentMethod === 'upi' && (
+                  <div className="rounded-2xl border border-[#E8D8D1] bg-[#FBF6F3] p-4">
+                    {resolvedUpiId ? (
+                      <div className="text-center">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiLink)}`}
+                          alt="UPI QR Code"
+                          className="w-44 h-44 mx-auto rounded-xl border border-[#E8D8D1] bg-white p-2"
+                        />
+                        <p className="mt-3 text-xs text-[#8E5E4F]/60">UPI ID</p>
+                        <p className="font-mono text-sm font-bold text-[#8E5E4F] break-all">{resolvedUpiId}</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                        UPI ID is not configured in admin settings, so QR cannot be shown yet.
+                      </div>
+                    )}
+
+                    <div className="mt-4">
+                      <label className="block text-[10px] uppercase tracking-widest text-[#8E5E4F]/50 font-bold mb-2">Transaction ID</label>
+                      <input
+                        type="text"
+                        value={transactionId}
+                        onChange={e => setTransactionId(e.target.value)}
+                        placeholder="Enter UPI transaction/reference ID"
+                        className="w-full bg-white border border-[#E8D8D1] focus:border-[#B47A67] rounded-xl px-4 py-3 text-sm text-[#8E5E4F] placeholder:text-[#8E5E4F]/30 focus:outline-none transition-colors"
+                      />
+                    </div>
+
+                    <div className="mt-3">
+                      <label className="block text-[10px] uppercase tracking-widest text-[#8E5E4F]/50 font-bold mb-2">Payment Screenshot (optional)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={e => setScreenshotFile(e.target.files?.[0] || null)}
+                        className="block w-full text-xs text-[#8E5E4F] file:mr-3 file:rounded-lg file:border-0 file:bg-[#B47A67] file:px-3 file:py-2 file:text-xs file:font-bold file:text-white"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

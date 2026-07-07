@@ -16,6 +16,10 @@ const fadeUp = {
   hidden: { opacity: 0, y: 24 },
   visible: (i = 0) => ({ opacity: 1, y: 0, transition: { duration: 0.5, delay: i * 0.08, ease: "easeOut" as const } }),
 };
+const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+const DEFAULT_UPI_ID = import.meta.env.VITE_UPI_ID || "";
+const DEFAULT_UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Thealankar";
+const isRazorpayConfigured = Boolean(RAZORPAY_KEY_ID);
 
 export default function Payment() {
   const { items, cartTotal, clearCart } = useCart();
@@ -28,7 +32,7 @@ export default function Payment() {
   const discount = checkout?.discount ?? 0;
   const orderTotal = Math.max(0, cartTotal - discount) + shippingCost;
 
-  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'upi'>('razorpay');
+  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'upi'>(isRazorpayConfigured ? 'razorpay' : 'upi');
   const [transactionId, setTransactionId] = useState('');
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
 
@@ -49,7 +53,7 @@ export default function Payment() {
     }, 2500);
   };
 
-  const [storeSettings, setStoreSettings] = useState({ upiId: '', upiPayeeName: 'Thealankar' });
+  const [storeSettings, setStoreSettings] = useState({ upiId: DEFAULT_UPI_ID, upiPayeeName: DEFAULT_UPI_PAYEE_NAME });
 
   useEffect(() => {
     try {
@@ -58,7 +62,7 @@ export default function Payment() {
       const unsub = onSnapshot(docRef, (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          setStoreSettings({ upiId: data.upiId || '', upiPayeeName: data.upiPayeeName || 'Thealankar' });
+          setStoreSettings({ upiId: data.upiId || DEFAULT_UPI_ID, upiPayeeName: data.upiPayeeName || DEFAULT_UPI_PAYEE_NAME });
         }
       });
       return () => unsub();
@@ -66,12 +70,17 @@ export default function Payment() {
   }, []);
 
   const handleRazorpay = async (oid: string) => {
+    if (!isRazorpayConfigured) {
+      setError('Online payment is not configured yet. Please use UPI payment.');
+      setIsProcessing(false);
+      return;
+    }
     const loaded = await loadRazorpayScript();
     if (!loaded) { setError('Failed to load payment gateway. Please try again.'); setIsProcessing(false); return; }
     const paymentOrder = await createRazorpayOrder(oid);
 
     const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      key: RAZORPAY_KEY_ID,
       amount: paymentOrder.amount,
       currency: paymentOrder.currency,
       order_id: paymentOrder.razorpayOrderId,
@@ -117,6 +126,7 @@ export default function Payment() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkout || items.length === 0) return;
+    if (paymentMethod === 'upi' && !storeSettings.upiId.trim()) { setError('UPI ID is not configured. Add the store UPI ID in admin settings before accepting UPI payment.'); return; }
     if (paymentMethod === 'upi' && !transactionId.trim()) { setError('Transaction ID is required for UPI payments.'); return; }
     
     setIsProcessing(true); setError('');
@@ -190,7 +200,9 @@ export default function Payment() {
     );
   }
 
-  const upiLink = storeSettings.upiId ? buildUpiLink(storeSettings.upiId, storeSettings.upiPayeeName, orderTotal, 'ODR') : '';
+  const resolvedUpiId = storeSettings.upiId.trim();
+  const resolvedUpiPayeeName = storeSettings.upiPayeeName.trim() || DEFAULT_UPI_PAYEE_NAME;
+  const upiLink = resolvedUpiId ? buildUpiLink(resolvedUpiId, resolvedUpiPayeeName, orderTotal, 'ODR') : '';
 
   return (
     <div className="min-h-screen bg-[#F7F1EE]">
@@ -211,10 +223,10 @@ export default function Payment() {
             </motion.div>
 
             <motion.section variants={fadeUp} initial="hidden" animate="visible" custom={1} className="space-y-4">
-              <label className={`flex items-center gap-4 p-5 rounded-sm border cursor-pointer transition-all ${paymentMethod === 'razorpay' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white/40'}`}>
-                <input type="radio" name="payment" checked={paymentMethod === 'razorpay'} onChange={() => setPaymentMethod('razorpay')} className="accent-[#B47A67] w-4 h-4" />
+              <label className={`flex items-center gap-4 p-5 rounded-sm border transition-all ${isRazorpayConfigured ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} ${paymentMethod === 'razorpay' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white/40'}`}>
+                <input type="radio" name="payment" checked={paymentMethod === 'razorpay'} onChange={() => isRazorpayConfigured && setPaymentMethod('razorpay')} disabled={!isRazorpayConfigured} className="accent-[#B47A67] w-4 h-4" />
                 <CreditCard className={`w-6 h-6 ${paymentMethod === 'razorpay' ? 'text-[#B47A67]' : 'text-[#8E5E4F]/40'}`} />
-                <div><div className="text-sm font-medium text-[#8E5E4F]">Pay with Online Payment</div><div className="text-xs text-[#8E5E4F]/60 mt-0.5">Cards, UPI, Net Banking via Razorpay</div></div>
+                <div><div className="text-sm font-medium text-[#8E5E4F]">Pay with Online Payment</div><div className="text-xs text-[#8E5E4F]/60 mt-0.5">{isRazorpayConfigured ? 'Cards, UPI, Net Banking via Razorpay' : 'Coming soon'}</div></div>
               </label>
 
               <label className={`flex items-center gap-4 p-5 rounded-sm border cursor-pointer transition-all ${paymentMethod === 'upi' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white/40'}`}>
@@ -229,8 +241,8 @@ export default function Payment() {
                     <div className="p-6 border border-[#E8D8D1] rounded-sm bg-white mt-2 space-y-6">
                       <div className="text-center">
                         <p className="text-sm text-[#8E5E4F] mb-4">Scan the QR code below using your UPI app (GPay, PhonePe, Paytm) to pay <strong>₹{orderTotal.toFixed(2)}</strong></p>
-                        {storeSettings.upiId ? <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiLink)}`} alt="UPI QR Code" className="w-40 h-40 mx-auto border border-[#E8D8D1] rounded-sm mb-4" /> : <div className="text-[#8E5E4F]/40 text-sm py-4">UPI ID not configured in admin settings.</div>}
-                        <p className="text-xs text-[#8E5E4F]/60 font-mono bg-[#F7F1EE] py-2 rounded-sm">{storeSettings.upiId || 'Not Configured'}</p>
+                        {resolvedUpiId ? <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(upiLink)}`} alt="UPI QR Code" className="w-40 h-40 mx-auto border border-[#E8D8D1] rounded-sm mb-4" /> : <div className="text-[#8E5E4F]/40 text-sm py-4">UPI ID not configured in admin settings.</div>}
+                        <p className="text-xs text-[#8E5E4F]/60 font-mono bg-[#F7F1EE] py-2 rounded-sm">{resolvedUpiId || 'Not Configured'}</p>
                       </div>
                       <div className="space-y-4 pt-4 border-t border-[#E8D8D1]">
                         <div>
