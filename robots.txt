@@ -1,0 +1,20 @@
+# robots.txt for The Alankar (thealankar.in)
+# Developed by Shutdown — Premium Digital Experiences
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/*
+Disallow: /cart
+Disallow: /checkout
+Disallow: /payment
+Disallow: /order-confirmation
+Disallow: /profile
+Disallow: /wallet
+Disallow: /referrals
+
+# Sitemap
+Sitemap: https://thealankar.in/sitemap.xml
+
+# Crawl-delay (optional, for polite crawling)
+Crawl-delay: 1
