@@ -437,7 +437,7 @@ export default function Home() {
   const { loading: offersLoading } = useStoreOffers();
 
   // Only skeleton the main content area — shell renders immediately to reduce LCP delay
-  const isLoading = productsLoading || categoriesLoading || offersLoading;
+  const isLoading = categoriesLoading || offersLoading;
 
   return (
     <>
@@ -470,7 +470,7 @@ export default function Home() {
               {/* Defer below-the-fold sections to prioritize Hero and Categories */}
               <DeferredRender>
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
-                <LovedOnes />
+                {!productsLoading && <LovedOnes />}
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
                 <HeroBanner />
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
@@ -499,4 +499,3 @@ export default function Home() {
     </>
   );
 }
-
