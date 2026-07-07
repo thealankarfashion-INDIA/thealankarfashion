@@ -1,0 +1,62 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "me6QICPYahDc48QWImFRD"
+uri = "file://artifacts/eclat/public/images/hero.png"
+type = "image"
+title = "Soft blush fashion editorial hero"
+
+[[generated]]
+id = "zEa2sCIJXIwUy8_IwuEXl"
+uri = "file://artifacts/eclat/public/images/collection-evening.png"
+type = "image"
+title = "Evening wear collection photography"
+
+[[generated]]
+id = "EkfSjZLhKHL5-8NrZ5YSx"
+uri = "file://artifacts/eclat/public/images/collection-daily.png"
+type = "image"
+title = "Daily wear collection photography"
+
+[[generated]]
+id = "LiCCzK5F4MkxsSoyXSGYi"
+uri = "file://artifacts/eclat/public/images/collection-occasion.png"
+type = "image"
+title = "Occasion wear collection photography"
+
+[[generated]]
+id = "xAdwgMtj3YNr5xy7ERWVT"
+uri = "file://artifacts/eclat/public/images/collection-statement.png"
+type = "image"
+title = "Statement collection photography"
+
+[[generated]]
+id = "JSEV3v8U5_-vLFFs4h0b2"
+uri = "file://artifacts/eclat/public/images/product-1.png"
+type = "image"
+title = "Product silk slip dress"
+
+[[generated]]
+id = "c1plvGOgsBatnDD0-RfXC"
+uri = "file://artifacts/eclat/public/images/product-2.png"
+type = "image"
+title = "Product tailored wool coat"
+
+[[generated]]
+id = "Zzwl3WnX2kbA_bg-UEinI"
+uri = "file://artifacts/eclat/public/images/product-3.png"
+type = "image"
+title = "Product wide leg trousers"
+
+[[generated]]
+id = "PwB18bhQKgLfnFZpMor-0"
+uri = "file://artifacts/eclat/public/images/product-4.png"
+type = "image"
+title = "Product architectural blazer"
+
+[[generated]]
+id = "s7r9wti6VQ-sYfxuB_0NG"
+uri = "file://artifacts/eclat/public/images/product-5.png"
+type = "image"
+title = "Product cashmere sweater"

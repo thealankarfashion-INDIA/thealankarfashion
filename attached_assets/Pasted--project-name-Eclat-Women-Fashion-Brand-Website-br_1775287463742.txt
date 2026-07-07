@@ -1,0 +1,247 @@
+{
+  "project_name": "Eclat - Women Fashion Brand Website",
+  "brand_type": "women's fashion brand",
+  "brand_positioning": "premium, feminine, elegant, modern, luxurious, minimal",
+  "target_audience": "women who love refined fashion, soft luxury, and premium styling",
+  "website_goal": "create a high-end fashion ecommerce and brand website that feels elegant, feminine, premium, and emotionally connected to the logo identity",
+  "design_direction": {
+    "style_keywords": [
+      "soft luxury",
+      "feminine",
+      "minimal",
+      "editorial",
+      "premium",
+      "romantic",
+      "clean",
+      "modern"
+    ],
+    "inspiration": [
+      "luxury fashion house websites",
+      "high-end boutique branding",
+      "editorial magazine layouts",
+      "soft blush monochrome visual identity"
+    ],
+    "visual_mood": "calm, graceful, polished, soft, high-fashion, refined",
+    "brand_personality": "confident, elegant, feminine, timeless, stylish"
+  },
+  "color_palette": {
+    "primary_background": "#F7F1EE",
+    "secondary_background": "#FBF6F3",
+    "primary_text": "#8E5E4F",
+    "secondary_text": "#B47A67",
+    "accent": "#C8927D",
+    "soft_accent": "#E4C7BC",
+    "border_color": "#E8D8D1",
+    "hover_color": "#A86F5C",
+    "button_primary": "#B77A67",
+    "button_primary_text": "#FFFFFF",
+    "button_secondary": "#F3E8E3",
+    "button_secondary_text": "#8E5E4F"
+  },
+  "typography": {
+    "headline_font_style": "elegant serif with high contrast and luxury editorial feel",
+    "body_font_style": "clean modern sans-serif with excellent readability",
+    "logo_font_style": "script-style luxury wordmark inspiration",
+    "text_tone": "soft, premium, refined, graceful"
+  },
+  "layout_system": {
+    "grid": "balanced 12-column responsive grid",
+    "spacing": "airy with generous whitespace",
+    "corner_radius": "soft rounded corners",
+    "shadows": "very subtle luxury shadows",
+    "section_flow": "hero to story to collections to product highlights to brand trust to newsletter to footer"
+  },
+  "pages": [
+    "Home",
+    "Shop All",
+    "New Arrivals",
+    "Collections",
+    "About Us",
+    "Lookbook",
+    "Journal",
+    "Contact",
+    "FAQ",
+    "Size Guide",
+    "Shipping & Returns",
+    "Cart",
+    "Checkout"
+  ],
+  "homepage_sections": [
+    {
+      "name": "hero_banner",
+      "content": "full screen editorial hero with premium women fashion imagery, soft blush background, elegant headline, and primary call to action"
+    },
+    {
+      "name": "brand_story",
+      "content": "short luxury brand introduction explaining elegance, confidence, and timeless style"
+    },
+    {
+      "name": "featured_collections",
+      "content": "three to four featured collections such as evening wear, daily luxury, occasion wear, and statement pieces"
+    },
+    {
+      "name": "new_arrivals",
+      "content": "horizontal product showcase with quick view and add to cart"
+    },
+    {
+      "name": "best_sellers",
+      "content": "top selling products with premium cards and clean pricing"
+    },
+    {
+      "name": "lookbook_section",
+      "content": "full-width editorial image collage with lifestyle fashion storytelling"
+    },
+    {
+      "name": "brand_values",
+      "content": "quality, comfort, sophistication, and women empowerment"
+    },
+    {
+      "name": "testimonial_section",
+      "content": "customer reviews with elegant cards and trust-focused design"
+    },
+    {
+      "name": "newsletter_section",
+      "content": "exclusive membership and email signup with elegant CTA"
+    },
+    {
+      "name": "footer",
+      "content": "minimal premium footer with links, social media, contact, and policy pages"
+    }
+  ],
+  "advanced_animations": {
+    "scroll_effects": [
+      "parallax hero movement",
+      "fade and rise on scroll",
+      "staggered section reveal",
+      "smooth horizontal product scroll",
+      "image zoom on hover",
+      "text underline sweep animation",
+      "soft floating motion for decorative elements",
+      "sticky navigation with elegant blur effect"
+    ],
+    "micro_interactions": [
+      "gentle button hover glow",
+      "product card lift on hover",
+      "smooth add-to-cart animation",
+      "menu slide transition",
+      "accordion expand with ease animation",
+      "image gallery fade transition"
+    ],
+    "motion_style": "slow, smooth, premium, never aggressive"
+  },
+  "ui_features": [
+    "sticky transparent header",
+    "mobile-first responsive design",
+    "mega menu for collections",
+    "search bar with autocomplete",
+    "wishlist system",
+    "quick view modal",
+    "size selector",
+    "color swatches",
+    "sort and filter panel",
+    "product zoom gallery",
+    "related products section",
+    "cart drawer",
+    "checkout flow",
+    "newsletter popup with elegant timing",
+    "Instagram style social gallery",
+    "customer review carousel",
+    "FAQ accordion",
+    "size guide popup",
+    "shipping and returns page",
+    "contact form with brand styling"
+  ],
+  "content_tone": {
+    "copy_style": "luxurious, feminine, confident, minimal",
+    "example_headlines": [
+      "Elevate Your Everyday",
+      "Soft Luxury for Modern Women",
+      "Grace in Every Detail",
+      "Designed to Be Remembered"
+    ],
+    "cta_style": [
+      "Shop Collection",
+      "Discover New Arrivals",
+      "Explore the Lookbook",
+      "Join the Inner Circle"
+    ]
+  },
+  "product_presentation": {
+    "card_style": "large image, soft border, subtle hover, clean price display",
+    "product_details": [
+      "fabric",
+      "fit",
+      "occasion",
+      "care instructions",
+      "size availability",
+      "style notes"
+    ],
+    "collection_filtering": [
+      "occasion",
+      "category",
+      "color",
+      "size",
+      "price",
+      "style"
+    ]
+  },
+  "brand_assets_direction": {
+    "logo_usage": "centered and premium, used sparingly for luxury feel",
+    "background_style": "soft ivory blush background like the logo base",
+    "decorative_elements": [
+      "thin elegant lines",
+      "soft floral or abstract feminine accents",
+      "minimal sparkle detail",
+      "light gold or rose-gold touches"
+    ],
+    "imagery_style": "soft-lit studio photography, women-focused, elegant poses, premium outfits"
+  },
+  "responsive_requirements": {
+    "desktop": "editorial layout with large imagery and spacious sections",
+    "tablet": "balanced stacked layout with preserved luxury spacing",
+    "mobile": "clean one-column experience, fast navigation, touch-friendly product cards"
+  },
+  "seo_requirements": {
+    "focus_keywords": [
+      "women fashion brand",
+      "luxury women clothing",
+      "elegant women's wear",
+      "premium fashion boutique",
+      "modern women styling"
+    ],
+    "requirements": [
+      "seo-friendly headings",
+      "meta descriptions",
+      "fast-loading images",
+      "semantic html structure",
+      "accessible alt text"
+    ]
+  },
+  "accessibility": {
+    "contrast": "ensure readable contrast while keeping soft luxury palette",
+    "keyboard_navigation": true,
+    "screen_reader_support": true,
+    "focus_states": "clear and elegant",
+    "reduced_motion_support": true
+  },
+  "tech_expectations": {
+    "performance": "production-ready, fast, optimized, smooth animations without lag",
+    "stack_suggestion": [
+      "React",
+      "Next.js",
+      "Tailwind CSS",
+      "Framer Motion",
+      "Stripe checkout",
+      "CMS-ready content structure"
+    ],
+    "ecommerce_features": [
+      "product catalog",
+      "cart",
+      "wishlist",
+      "checkout",
+      "order tracking",
+      "email capture"
+    ]
+  },
+  "final_instruction": "Build a complete premium women fashion website that matches the logo mood exactly: soft blush background, rose-gold/caramel accents, elegant typography, feminine luxury styling, and advanced scroll-based motion throughout the site. Make it look like a real high-end fashion brand ready for production."
+}
