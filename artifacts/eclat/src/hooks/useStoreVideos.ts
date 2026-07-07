@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { collection, query, orderBy, getDocs } from "@/lib/supabaseStore";
 import { getDB } from "../lib/supabase";
+import { loadStoreSeed } from "../lib/storeSeed";
 import type { TestingVideo } from "../lib/types";
 
 let cachedVideos: TestingVideo[] | null = null;
@@ -65,7 +66,10 @@ export default function useStoreVideos() {
           })();
         }
 
-        const data = await fetchPromise;
+        let data = await fetchPromise;
+        if (data.length === 0) {
+          data = (await loadStoreSeed()).testingVideos || [];
+        }
         cachedVideos = data;
         
         if (isMounted) {
@@ -73,9 +77,12 @@ export default function useStoreVideos() {
           setLoading(false);
         }
       } catch (err) {
-        console.warn('Supabase fetch error in testingVideos, using empty array');
+        console.warn('Supabase fetch error in testingVideos, using seed fallback');
+        const seedVideos = (await loadStoreSeed()).testingVideos || [];
+        cachedVideos = seedVideos;
         if (isMounted) {
           setError(err);
+          setVideos(seedVideos);
           setLoading(false);
         }
       }

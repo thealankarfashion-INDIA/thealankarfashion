@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { collection, query, orderBy, onSnapshot } from '@/lib/supabaseStore';
 import { getDB } from '../lib/supabase';
+import { loadStoreSeed } from '../lib/storeSeed';
 import type { Product, Offer, MainBanner } from '../lib/types';
 
 interface StoreDataContextType {
@@ -25,9 +26,17 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
   const [mainBannersLoading, setMainBannersLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     let unsubProducts: () => void;
     let unsubOffers: () => void;
     let unsubBanners: () => void;
+
+    const sortByCreatedAtDesc = <T extends { createdAt?: any }>(items: T[]) =>
+      [...items].sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || (a.createdAt ? new Date(a.createdAt as any).getTime() : 0);
+        const timeB = b.createdAt?.toMillis?.() || (b.createdAt ? new Date(b.createdAt as any).getTime() : 0);
+        return timeB - timeA;
+      });
 
     try {
       const db = getDB();
@@ -95,17 +104,26 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
               sku: data.sku ?? "",
             } as Product;
           });
-          arr.sort((a, b) => {
-            const timeA = a.createdAt?.toMillis?.() || (a.createdAt ? new Date(a.createdAt as any).getTime() : 0);
-            const timeB = b.createdAt?.toMillis?.() || (b.createdAt ? new Date(b.createdAt as any).getTime() : 0);
-            return timeB - timeA;
+          if (arr.length > 0) {
+            if (!active) return;
+            setProducts(sortByCreatedAtDesc(arr));
+            setProductsLoading(false);
+            return;
+          }
+
+          void loadStoreSeed().then((seed) => {
+            if (!active) return;
+            setProducts(sortByCreatedAtDesc(seed.products || []));
+            setProductsLoading(false);
           });
-          setProducts(arr);
-          setProductsLoading(false);
         },
         (err) => {
           console.error("StoreDataProvider query error (products):", err);
-          setProductsLoading(false);
+          void loadStoreSeed().then((seed) => {
+            if (!active) return;
+            setProducts(sortByCreatedAtDesc(seed.products || []));
+            setProductsLoading(false);
+          });
         }
       );
 
@@ -117,12 +135,26 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           const list: Offer[] = snapshot.docs.map((doc) => {
             return { id: doc.id, ...doc.data() } as Offer;
           });
-          setOffers(list);
-          setOffersLoading(false);
+          if (list.length > 0) {
+            if (!active) return;
+            setOffers(list);
+            setOffersLoading(false);
+            return;
+          }
+
+          void loadStoreSeed().then((seed) => {
+            if (!active) return;
+            setOffers(seed.offers || []);
+            setOffersLoading(false);
+          });
         },
         (error) => {
           console.error("StoreDataProvider query error (offers):", error);
-          setOffersLoading(false);
+          void loadStoreSeed().then((seed) => {
+            if (!active) return;
+            setOffers(seed.offers || []);
+            setOffersLoading(false);
+          });
         }
       );
 
@@ -134,23 +166,44 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           const list: MainBanner[] = snapshot.docs
             .map((doc) => ({ id: doc.id, ...doc.data() } as MainBanner))
             .filter((banner) => banner.active);
-          setMainBanners(list);
-          setMainBannersLoading(false);
+          if (list.length > 0) {
+            if (!active) return;
+            setMainBanners(list);
+            setMainBannersLoading(false);
+            return;
+          }
+
+          void loadStoreSeed().then((seed) => {
+            if (!active) return;
+            setMainBanners((seed.mainBanners || []).filter((banner) => banner.active));
+            setMainBannersLoading(false);
+          });
         },
         (error) => {
           console.error("StoreDataProvider query error (banners):", error);
-          setMainBannersLoading(false);
+          void loadStoreSeed().then((seed) => {
+            if (!active) return;
+            setMainBanners((seed.mainBanners || []).filter((banner) => banner.active));
+            setMainBannersLoading(false);
+          });
         }
       );
 
     } catch (err) {
       console.warn("Supabase not configured in StoreDataProvider", err);
-      setProductsLoading(false);
-      setOffersLoading(false);
-      setMainBannersLoading(false);
+      void loadStoreSeed().then((seed) => {
+        if (!active) return;
+        setProducts(sortByCreatedAtDesc(seed.products || []));
+        setOffers(seed.offers || []);
+        setMainBanners((seed.mainBanners || []).filter((banner) => banner.active));
+        setProductsLoading(false);
+        setOffersLoading(false);
+        setMainBannersLoading(false);
+      });
     }
 
     return () => {
+      active = false;
       if (unsubProducts) unsubProducts();
       if (unsubOffers) unsubOffers();
       if (unsubBanners) unsubBanners();

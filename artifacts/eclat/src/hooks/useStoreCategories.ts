@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { collection, query, getDocs } from "@/lib/supabaseStore";
 import { getDB } from "../lib/supabase";
+import { loadStoreSeed } from "../lib/storeSeed";
 import type { Category } from "../lib/types";
 
 let cachedCategories: Category[] | null = null;
@@ -64,7 +65,10 @@ export default function useStoreCategories() {
           })();
         }
 
-        const data = await fetchPromise;
+        let data = await fetchPromise;
+        if (data.length === 0) {
+          data = (await loadStoreSeed()).categories || [];
+        }
         cachedCategories = data;
         
         if (isMounted) {
@@ -72,9 +76,12 @@ export default function useStoreCategories() {
           setLoading(false);
         }
       } catch (err) {
-        console.warn('Supabase fetch error in categories, using empty array');
+        console.warn('Supabase fetch error in categories, using seed fallback');
+        const seedCategories = (await loadStoreSeed()).categories || [];
+        cachedCategories = seedCategories;
         if (isMounted) {
           setError(err);
+          setCategories(seedCategories);
           setLoading(false);
         }
       }

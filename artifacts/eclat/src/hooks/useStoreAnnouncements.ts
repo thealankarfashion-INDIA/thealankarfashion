@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { collection, query, orderBy, getDocs } from '@/lib/supabaseStore';
 import { getDB } from '../lib/supabase';
+import { loadStoreSeed } from '../lib/storeSeed';
 import type { Announcement } from '../lib/types';
 
 let cachedAnnouncements: Announcement[] | null = null;
@@ -33,7 +34,10 @@ const useStoreAnnouncements = () => {
           })();
         }
 
-        const data = await fetchPromise;
+        let data = await fetchPromise;
+        if (data.length === 0) {
+          data = (await loadStoreSeed()).announcements || [];
+        }
         cachedAnnouncements = data;
 
         if (isMounted) {
@@ -41,8 +45,13 @@ const useStoreAnnouncements = () => {
           setLoading(false);
         }
       } catch (err) {
-        console.warn('Supabase fetch error in announcements, using empty array');
-        if (isMounted) setLoading(false);
+        console.warn('Supabase fetch error in announcements, using seed fallback');
+        const seedAnnouncements = (await loadStoreSeed()).announcements || [];
+        cachedAnnouncements = seedAnnouncements;
+        if (isMounted) {
+          setAnnouncements(seedAnnouncements);
+          setLoading(false);
+        }
       }
     };
 

@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { collection, query, getDocs } from "@/lib/supabaseStore";
 import { getDB } from "../lib/supabase";
+import { loadStoreSeed } from "../lib/storeSeed";
 import type { Brand } from "../lib/types";
 
 let cachedBrands: Brand[] | null = null;
@@ -64,7 +65,10 @@ export default function useStoreBrands() {
           })();
         }
 
-        const data = await fetchPromise;
+        let data = await fetchPromise;
+        if (data.length === 0) {
+          data = (await loadStoreSeed()).brands || [];
+        }
         cachedBrands = data;
         
         if (isMounted) {
@@ -72,9 +76,12 @@ export default function useStoreBrands() {
           setLoading(false);
         }
       } catch (err) {
-        console.warn('Supabase fetch error in brands, using empty array');
+        console.warn('Supabase fetch error in brands, using seed fallback');
+        const seedBrands = (await loadStoreSeed()).brands || [];
+        cachedBrands = seedBrands;
         if (isMounted) {
           setError(err);
+          setBrands(seedBrands);
           setLoading(false);
         }
       }
