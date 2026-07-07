@@ -7,6 +7,7 @@ import type { Product, Offer, MainBanner } from '../lib/types';
 interface StoreDataContextType {
   products: Product[];
   productsLoading: boolean;
+  ensureProductsLoaded: () => void;
   offers: Offer[];
   offersLoading: boolean;
   mainBanners: MainBanner[];
@@ -18,6 +19,7 @@ const StoreDataContext = createContext<StoreDataContextType | null>(null);
 export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [productsRequested, setProductsRequested] = useState(false);
 
   const [offers, setOffers] = useState<Offer[]>([]);
   const [offersLoading, setOffersLoading] = useState(true);
@@ -25,85 +27,88 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
   const [mainBanners, setMainBanners] = useState<MainBanner[]>([]);
   const [mainBannersLoading, setMainBannersLoading] = useState(true);
 
+  const ensureProductsLoaded = React.useCallback(() => {
+    setProductsRequested(true);
+  }, []);
+
+  const sortByCreatedAtDesc = <T extends { createdAt?: any }>(items: T[]) =>
+    [...items].sort((a, b) => {
+      const timeA = a.createdAt?.toMillis?.() || (a.createdAt ? new Date(a.createdAt as any).getTime() : 0);
+      const timeB = b.createdAt?.toMillis?.() || (b.createdAt ? new Date(b.createdAt as any).getTime() : 0);
+      return timeB - timeA;
+    });
+
+  const mapProduct = (id: string, data: any): Product => ({
+    id,
+    name: data.name ?? "",
+    price: Number(data.price ?? 0),
+    originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
+    category: data.category ?? "uncategorized",
+    brand: data.brand ?? "",
+    description: data.description ?? "",
+    sizes: Array.isArray(data.sizes)
+      ? data.sizes
+      : typeof data.sizes === "string"
+        ? data.sizes.split(",").map((s: string) => s.trim())
+        : [],
+    variants: Array.isArray(data.variants)
+      ? data.variants
+      : Array.isArray(data.sizes)
+        ? data.sizes
+        : typeof data.sizes === "string"
+          ? data.sizes.split(",").map((s: string) => s.trim())
+          : ["Single"],
+    images: Array.isArray(data.images) ? data.images : data.images ? [data.images] : [],
+    image: Array.isArray(data.images) && data.images.length > 0 ? data.images[0] : (data.image || ""),
+    weight: data.weight ?? "",
+    ingredients: data.ingredients ?? "",
+    flavor: data.flavor ?? "",
+    servingSuggestion: data.servingSuggestion ?? "",
+    allergenInfo: data.allergenInfo ?? "",
+    shelfLife: data.shelfLife ?? "",
+    isNew: !!data.isNew,
+    isBestseller: !!data.isBestseller || !!data.featured,
+    isOnSale: !!data.isOnSale,
+    inStock: data.stockQuantity !== undefined ? Number(data.stockQuantity) > 0 : (data.inStock === undefined ? true : !!data.inStock),
+    stockQuantity: data.stockQuantity !== undefined ? Number(data.stockQuantity) : undefined,
+    featured: !!data.featured,
+    colors: Array.isArray(data.colors)
+      ? data.colors
+      : data.colors
+        ? data.colors.split(",").map((c: string) => c.trim())
+        : [],
+    rating: Number(data.rating ?? 0),
+    reviews: Number(data.reviews ?? 0),
+    reviewCount: Number(data.reviewCount ?? data.reviews ?? 0),
+    badge: data.badge ?? undefined,
+    whatsInTheBox: Array.isArray(data.whatsInTheBox) ? data.whatsInTheBox : [],
+    youtubeUrl: data.youtubeUrl ?? "",
+    youtubeVideoId: data.youtubeVideoId ?? "",
+    createdAt: data.createdAt ?? null,
+    updatedAt: data.updatedAt ?? null,
+    displayOrder: data.displayOrder ?? 0,
+    collection: data.collection ?? "",
+    fabric: data.fabric ?? "",
+    fit: data.fit ?? "",
+    occasion: data.occasion ?? "",
+    sku: data.sku ?? "",
+  });
+
   useEffect(() => {
+    if (!productsRequested) {
+      return;
+    }
+
     let active = true;
     let unsubProducts: () => void;
-    let unsubOffers: () => void;
-    let unsubBanners: () => void;
-
-    const sortByCreatedAtDesc = <T extends { createdAt?: any }>(items: T[]) =>
-      [...items].sort((a, b) => {
-        const timeA = a.createdAt?.toMillis?.() || (a.createdAt ? new Date(a.createdAt as any).getTime() : 0);
-        const timeB = b.createdAt?.toMillis?.() || (b.createdAt ? new Date(b.createdAt as any).getTime() : 0);
-        return timeB - timeA;
-      });
 
     try {
       const db = getDB();
-
-      // Products Listener
       const qProducts = query(collection(db, 'products'));
       unsubProducts = onSnapshot(
         qProducts,
         (snap) => {
-          const arr = snap.docs.map((d) => {
-            const data = d.data() as any;
-            return {
-              id: d.id,
-              name: data.name ?? "",
-              price: Number(data.price ?? 0),
-              originalPrice: data.originalPrice ? Number(data.originalPrice) : undefined,
-              category: data.category ?? "uncategorized",
-              brand: data.brand ?? "",
-              description: data.description ?? "",
-              sizes: Array.isArray(data.sizes)
-                ? data.sizes
-                : typeof data.sizes === "string"
-                  ? data.sizes.split(",").map((s: string) => s.trim())
-                  : [],
-              variants: Array.isArray(data.variants)
-                ? data.variants
-                : Array.isArray(data.sizes)
-                  ? data.sizes
-                  : typeof data.sizes === "string"
-                    ? data.sizes.split(",").map((s: string) => s.trim())
-                    : ["Single"],
-              images: Array.isArray(data.images) ? data.images : data.images ? [data.images] : [],
-              image: Array.isArray(data.images) && data.images.length > 0 ? data.images[0] : (data.image || ""),
-              weight: data.weight ?? "",
-              ingredients: data.ingredients ?? "",
-              flavor: data.flavor ?? "",
-              servingSuggestion: data.servingSuggestion ?? "",
-              allergenInfo: data.allergenInfo ?? "",
-              shelfLife: data.shelfLife ?? "",
-              isNew: !!data.isNew,
-              isBestseller: !!data.isBestseller || !!data.featured,
-              isOnSale: !!data.isOnSale,
-              inStock: data.stockQuantity !== undefined ? Number(data.stockQuantity) > 0 : (data.inStock === undefined ? true : !!data.inStock),
-              stockQuantity: data.stockQuantity !== undefined ? Number(data.stockQuantity) : undefined,
-              featured: !!data.featured,
-              colors: Array.isArray(data.colors)
-                ? data.colors
-                : data.colors
-                  ? data.colors.split(",").map((c: string) => c.trim())
-                  : [],
-              rating: Number(data.rating ?? 0),
-              reviews: Number(data.reviews ?? 0),
-              reviewCount: Number(data.reviewCount ?? data.reviews ?? 0),
-              badge: data.badge ?? undefined,
-              whatsInTheBox: Array.isArray(data.whatsInTheBox) ? data.whatsInTheBox : [],
-              youtubeUrl: data.youtubeUrl ?? "",
-              youtubeVideoId: data.youtubeVideoId ?? "",
-              createdAt: data.createdAt ?? null,
-              updatedAt: data.updatedAt ?? null,
-              displayOrder: data.displayOrder ?? 0,
-              collection: data.collection ?? "",
-              fabric: data.fabric ?? "",
-              fit: data.fit ?? "",
-              occasion: data.occasion ?? "",
-              sku: data.sku ?? "",
-            } as Product;
-          });
+          const arr = snap.docs.map((d) => mapProduct(d.id, d.data() as any));
           if (arr.length > 0) {
             if (!active) return;
             setProducts(sortByCreatedAtDesc(arr));
@@ -126,8 +131,29 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           });
         }
       );
+    } catch (err) {
+      console.warn("Supabase not configured in StoreDataProvider (products)", err);
+      void loadStoreSeed().then((seed) => {
+        if (!active) return;
+        setProducts(sortByCreatedAtDesc(seed.products || []));
+        setProductsLoading(false);
+      });
+    }
 
-      // Offers Listener
+    return () => {
+      active = false;
+      if (unsubProducts) unsubProducts();
+    };
+  }, [productsRequested]);
+
+  useEffect(() => {
+    let active = true;
+    let unsubOffers: () => void;
+    let unsubBanners: () => void;
+
+    try {
+      const db = getDB();
+
       const qOffers = query(collection(db, 'offers'), orderBy('order', 'asc'));
       unsubOffers = onSnapshot(
         qOffers,
@@ -158,7 +184,6 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
         }
       );
 
-      // Main Banners Listener
       const qBanners = query(collection(db, 'mainBanners'), orderBy('order', 'asc'));
       unsubBanners = onSnapshot(
         qBanners,
@@ -188,15 +213,12 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           });
         }
       );
-
     } catch (err) {
       console.warn("Supabase not configured in StoreDataProvider", err);
       void loadStoreSeed().then((seed) => {
         if (!active) return;
-        setProducts(sortByCreatedAtDesc(seed.products || []));
         setOffers(seed.offers || []);
         setMainBanners((seed.mainBanners || []).filter((banner) => banner.active));
-        setProductsLoading(false);
         setOffersLoading(false);
         setMainBannersLoading(false);
       });
@@ -204,7 +226,6 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       active = false;
-      if (unsubProducts) unsubProducts();
       if (unsubOffers) unsubOffers();
       if (unsubBanners) unsubBanners();
     };
@@ -215,6 +236,7 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
       value={{
         products,
         productsLoading,
+        ensureProductsLoaded,
         offers,
         offersLoading,
         mainBanners,

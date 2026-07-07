@@ -4,14 +4,14 @@ import { useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'wouter';
 import { Search, X, Clock, TrendingUp, ArrowRight, Sparkles, Zap } from 'lucide-react';
-import { UseSearchReturn, SearchResult } from '@/hooks/useSearch';
+import { SearchResult, useSearch } from '@/hooks/useSearch';
 import { Category } from '@/lib/types';
+import useStoreProducts from '@/hooks/useStoreProducts';
+import useStoreCategories from '@/hooks/useStoreCategories';
 
 interface SearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
-  searchState: UseSearchReturn;
-  categories?: Category[];
   inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
@@ -82,11 +82,12 @@ function SuggestionRow({
 export default function SearchOverlay({
   isOpen,
   onClose,
-  searchState,
-  categories = [],
   inputRef,
 }: SearchOverlayProps) {
   const [, setLocation] = useLocation();
+  const { products } = useStoreProducts();
+  const { categories = [] } = useStoreCategories();
+  const searchState = useSearch(products, categories);
   const { query, setQuery, debouncedQuery, results, isSearching, history, trending, addToHistory, removeFromHistory, clearHistory } = searchState;
   const activeIdxRef = useRef(-1);
   const overlayRef = useRef<HTMLDivElement>(null);

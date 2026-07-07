@@ -1,14 +1,17 @@
 // src/hooks/useStoreProducts.ts
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useStoreData } from "../context/StoreDataContext";
 
 export default function useStoreProducts() {
-  const { products, productsLoading } = useStoreData();
+  const { products, productsLoading, ensureProductsLoaded } = useStoreData();
+
+  useEffect(() => {
+    ensureProductsLoaded();
+  }, [ensureProductsLoaded]);
 
   const retry = useCallback(() => {
-    // No-op for now, context handles reconnection if needed.
-    console.log("Retry called on products (handled by global context)");
-  }, []);
+    ensureProductsLoaded();
+  }, [ensureProductsLoaded]);
 
   return { products, loading: productsLoading, error: null, retry };
 }

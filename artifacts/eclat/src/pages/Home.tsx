@@ -432,7 +432,6 @@ import SEO from '@/components/seo/SEO';
 
 // Main Export
 export default function Home() {
-  const { loading: productsLoading } = useStoreProducts();
   const { loading: categoriesLoading } = useStoreCategories();
   const { loading: offersLoading } = useStoreOffers();
 
@@ -470,7 +469,7 @@ export default function Home() {
               {/* Defer below-the-fold sections to prioritize Hero and Categories */}
               <DeferredRender>
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
-                {!productsLoading && <LovedOnes />}
+                <LovedOnes />
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
                 <HeroBanner />
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
