@@ -128,7 +128,7 @@ const SimpleConfetti = () => {
 export default function Checkout() {
   const { items, cartTotal, updateQuantity, removeFromCart, clearCart, addToCart } = useCart();
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { calculateDelivery, settings: deliverySettings } = useDelivery();
 
   // Promo
@@ -199,6 +199,13 @@ export default function Checkout() {
   const resolvedUpiId = storeSettings.upiId.trim();
   const resolvedUpiPayeeName = storeSettings.upiPayeeName.trim() || DEFAULT_UPI_PAYEE_NAME;
   const upiLink = resolvedUpiId ? buildUpiLink(resolvedUpiId, resolvedUpiPayeeName, total, 'ODR') : '';
+
+  useEffect(() => {
+    if (authLoading || user) return;
+    const nextPath = `/checkout${window.location.search}`;
+    sessionStorage.setItem('thealankar_post_auth_redirect', nextPath);
+    setLocation(`/profile?next=${encodeURIComponent(nextPath)}`);
+  }, [authLoading, user, setLocation]);
 
   useEffect(() => {
     try {
@@ -513,6 +520,14 @@ export default function Checkout() {
 
   if (failurePhase === 'progress') {
     return <PaymentProgressAnimation amount={total} status="error" />;
+  }
+
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-[#F7F1EE] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#8E5E4F]/20 border-t-[#8E5E4F] rounded-full animate-spin" />
+      </div>
+    );
   }
 
   if (failurePhase === 'cross') {

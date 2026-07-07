@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: window.location.href },
     });
     if (signInError) {
       setError(signInError.message || 'Sign-in failed. Please try again.');

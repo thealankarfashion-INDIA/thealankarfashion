@@ -49,6 +49,7 @@ export default function Cart() {
   };
 
   const deliveryDate = "May 9, Sat"; // Mock delivery date
+  const checkoutTarget = user ? '/checkout' : '/profile?next=%2Fcheckout';
 
   if (items.length === 0) {
     return (
@@ -255,7 +256,7 @@ export default function Cart() {
                     <Heart className="w-4 h-4" /> Save for later
                   </button>
                   <button 
-                    onClick={() => setLocation('/checkout')}
+                    onClick={() => setLocation(checkoutTarget)}
                     className="flex-1 py-3 flex items-center justify-center gap-2 text-xs font-bold text-[#8E5E4F]/60 uppercase tracking-widest hover:text-[#B47A67] transition-colors"
                   >
                     <Zap className="w-4 h-4" /> Buy this now
@@ -293,7 +294,7 @@ export default function Cart() {
           </div>
           
           <button 
-            onClick={() => !isBelowMinOrder && setLocation('/checkout')}
+            onClick={() => !isBelowMinOrder && setLocation(checkoutTarget)}
             disabled={isBelowMinOrder}
             className={`flex-1 max-w-[240px] h-12 rounded-lg font-black tracking-wide text-sm shadow-lg transition-all uppercase flex items-center justify-center gap-2 ${
               isBelowMinOrder 

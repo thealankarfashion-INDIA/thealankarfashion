@@ -103,6 +103,13 @@ export default function Profile() {
   const [addressSearchQuery, setAddressSearchQuery] = useState('');
   const [openAddressMenuId, setOpenAddressMenuId] = useState<string | null>(null);
   const [showRateAppModal, setShowRateAppModal] = useState(false);
+  const checkoutNextPath = new URLSearchParams(searchParams).get('next');
+
+  useEffect(() => {
+    if (checkoutNextPath?.startsWith('/')) {
+      sessionStorage.setItem('thealankar_post_auth_redirect', checkoutNextPath);
+    }
+  }, [checkoutNextPath]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -142,6 +149,15 @@ export default function Profile() {
       setActiveTab(tab as any);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (loading || !user) return;
+    const pendingRedirect = checkoutNextPath || sessionStorage.getItem('thealankar_post_auth_redirect');
+    if (pendingRedirect && pendingRedirect.startsWith('/')) {
+      sessionStorage.removeItem('thealankar_post_auth_redirect');
+      setLocation(pendingRedirect);
+    }
+  }, [checkoutNextPath, loading, setLocation, user]);
 
   const handleSetDefaultAddress = async (addressId: string) => {
     if (!user || !userProfile) return;
