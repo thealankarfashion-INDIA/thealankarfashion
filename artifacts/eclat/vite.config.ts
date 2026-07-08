@@ -21,7 +21,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
-    modulePreload: false,
     rollupOptions: {
       output: {
         manualChunks(id) {

@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CartDrawer from './CartDrawer';
 import AnnouncementBar from '../home/AnnouncementBar';
 import SearchBar from '@/components/search/SearchBar';
+import { prefetchLinkProps } from '@/lib/routePrefetch';
 
 const navLinks = [
   { name: 'NEW ARRIVALS', href: '/new-arrivals' },
@@ -25,7 +26,7 @@ export default function Navbar() {
   const { items: wishlistItems } = useWishlist();
   const { user } = useAuth();
   const [location, setLocation] = useLocation();
-  const { categories } = useStoreCategories();
+  const { categories } = useStoreCategories(isMegaMenuOpen);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -56,7 +57,7 @@ export default function Navbar() {
 
               {/* Center: Logo */}
               <div className="flex-none text-center">
-                <Link href="/">
+                <Link href="/" {...prefetchLinkProps("/")}>
                   <span className="font-serif text-4xl italic tracking-wider text-[#C59B62]">
                     Thealankar
                   </span>
@@ -72,7 +73,7 @@ export default function Navbar() {
                   className="w-[260px]"
                 />
 
-                <Link href="/profile?tab=wishlist" className="relative hover:opacity-80 transition-opacity">
+                <Link href="/profile?tab=wishlist" {...prefetchLinkProps("/profile?tab=wishlist")} className="relative hover:opacity-80 transition-opacity">
                   <Heart className="w-[22px] h-[22px] text-[#333333]" strokeWidth={1.5} />
                   {wishlistItems.length > 0 && (
                     <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#CF6B8D] rounded-full border border-[#FDF9F3]" />
@@ -88,7 +89,7 @@ export default function Navbar() {
                   )}
                 </button>
 
-                <Link href="/profile" className="hover:opacity-80 transition-opacity">
+                <Link href="/profile" {...prefetchLinkProps("/profile")} className="hover:opacity-80 transition-opacity">
                   {user?.photoURL ? (
                     <img src={user.photoURL} alt="Profile" className="w-[22px] h-[22px] rounded-full object-cover border border-[#E8D8D1]" />
                   ) : (
@@ -106,7 +107,7 @@ export default function Navbar() {
                     onMouseEnter={() => link.hasDropdown && setIsMegaMenuOpen(true)}
                     onMouseLeave={() => link.hasDropdown && setIsMegaMenuOpen(false)}
                   >
-                    <Link href={link.href} className="text-[11px] font-bold tracking-[0.12em] uppercase text-[#333333] hover:text-[#C59B62] transition-colors">
+                    <Link href={link.href} {...prefetchLinkProps(link.href)} className="text-[11px] font-bold tracking-[0.12em] uppercase text-[#333333] hover:text-[#C59B62] transition-colors">
                       {link.name}
                     </Link>
 
@@ -127,14 +128,14 @@ export default function Navbar() {
                                 <ul className="space-y-3 max-h-[250px] overflow-y-auto pr-2">
                                   {categories.map(c => (
                                     <li key={c.id}>
-                                      <Link href={`/collections?cat=${c.id}`} className="text-[#333333]/80 hover:text-[#C59B62] transition-colors text-sm">
+                                      <Link href={`/collections?cat=${c.id}`} {...prefetchLinkProps(`/collections?cat=${c.id}`)} className="text-[#333333]/80 hover:text-[#C59B62] transition-colors text-sm">
                                         {c.name}
                                       </Link>
                                     </li>
                                   ))}
                                 </ul>
                                 <div className="mt-6 pt-6 border-t border-[#E8D8D1]">
-                                  <Link href="/collections" className="text-sm uppercase tracking-widest text-[#C59B62] hover:opacity-80 transition-opacity">
+                                  <Link href="/collections" {...prefetchLinkProps("/collections")} className="text-sm uppercase tracking-widest text-[#C59B62] hover:opacity-80 transition-opacity">
                                     View All Collections →
                                   </Link>
                                 </div>
@@ -182,7 +183,7 @@ export default function Navbar() {
 
                   {/* Center: Logo */}
                   <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center w-full max-w-[150px]">
-                    <Link href="/">
+                    <Link href="/" {...prefetchLinkProps("/")}>
                       <span className="font-serif text-[28px] italic tracking-wider text-[#C59B62] truncate">
                         Thealankar
                       </span>
@@ -191,7 +192,7 @@ export default function Navbar() {
 
                   {/* Right: Icons */}
                   <div className="flex items-center gap-4 relative z-10">
-                    <Link href="/profile?tab=wishlist" className="hover:opacity-80 transition-opacity">
+                    <Link href="/profile?tab=wishlist" {...prefetchLinkProps("/profile?tab=wishlist")} className="hover:opacity-80 transition-opacity">
                       <Heart className="w-[22px] h-[22px] text-[#333333]" strokeWidth={1.5} />
                     </Link>
                     <button onClick={() => setIsCartOpen(true)} className="relative hover:opacity-80 transition-opacity">
@@ -221,11 +222,11 @@ export default function Navbar() {
                 <button onClick={() => window.history.back()} className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-50 text-[#333]">
                   <ArrowLeft className="w-5 h-5" />
                 </button>
-                <Link href="/">
+                <Link href="/" {...prefetchLinkProps("/")}>
                   <span className="font-serif text-xl italic tracking-wider text-[#C59B62]">Thealankar</span>
                 </Link>
                 <div className="flex items-center gap-3">
-                  <Link href="/profile?tab=wishlist" className="relative hover:opacity-80 transition-opacity">
+                  <Link href="/profile?tab=wishlist" {...prefetchLinkProps("/profile?tab=wishlist")} className="relative hover:opacity-80 transition-opacity">
                     <Heart className="w-[22px] h-[22px] text-[#333]" strokeWidth={1.5} />
                     {wishlistItems.length > 0 && (
                       <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-[#CF6B8D] rounded-full border border-[#FDF9F3]" />

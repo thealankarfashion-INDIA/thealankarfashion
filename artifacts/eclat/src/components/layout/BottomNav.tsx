@@ -4,6 +4,7 @@ import { Home, Search, Grid3X3, User, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
+import { prefetchLinkProps } from '@/lib/routePrefetch';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Home' },
@@ -49,7 +50,7 @@ export default function BottomNav() {
 
             if (item.isProfile) {
               return (
-                <Link key="profile" href={item.href} className="flex-1 flex flex-col items-center justify-center gap-1 group">
+                <Link key="profile" href={item.href} {...prefetchLinkProps(item.href)} className="flex-1 flex flex-col items-center justify-center gap-1 group">
                   <motion.div
                     whileTap={{ scale: 0.88 }}
                     className="relative flex flex-col items-center gap-1"
@@ -89,6 +90,7 @@ export default function BottomNav() {
               <Link
                 key={item.href + item.label}
                 href={item.href}
+                {...prefetchLinkProps(item.href)}
                 data-testid={`bottom-nav-${item.label.toLowerCase()}`}
                 className="flex-1 flex flex-col items-center justify-center group"
               >

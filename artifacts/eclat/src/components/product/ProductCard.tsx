@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Product } from "@/lib/types";
 import { useCart } from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
+import { prefetchLinkProps } from "@/lib/routePrefetch";
 
 
 interface ProductCardProps {
@@ -91,7 +92,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
         className="group relative bg-[#FBF6F3] rounded-xl border border-[#E8D8D1] overflow-hidden transition-all duration-300 hover:shadow-lg"
       >
         {/* Image Container */}
-        <Link href={`/products/${product.id}`}>
+        <Link href={`/products/${product.id}`} {...prefetchLinkProps(`/products/${product.id}`)}>
           <div className="relative w-full bg-white border-b border-[#E8D8D1] cursor-pointer overflow-hidden flex items-center justify-center">
             <div className="w-full h-[240px] sm:h-[240px] md:h-[320px] lg:h-[260px] flex items-center justify-center relative">
               <img
@@ -153,7 +154,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
               </div>
             </div>
 
-            <Link href={`/products/${product.id}`}>
+            <Link href={`/products/${product.id}`} {...prefetchLinkProps(`/products/${product.id}`)}>
               <h3 className="font-serif text-[15px] leading-tight text-[#8E5E4F] mb-3 cursor-pointer hover:text-[#B47A67] transition-colors line-clamp-2">
                 {product.name}
               </h3>
