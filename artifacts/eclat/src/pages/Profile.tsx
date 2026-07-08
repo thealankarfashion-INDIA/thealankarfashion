@@ -112,8 +112,26 @@ export default function Profile() {
   }, [checkoutNextPath]);
 
   useEffect(() => {
-    if (!user?.uid) return;
-    getUserProfile(user.uid, user.email || '', user.displayName || '').then(setUserProfile).catch(console.error);
+    if (!user?.uid) {
+      setUserProfile(null);
+      setUserOrders([]);
+      setUserCoupons([]);
+      return;
+    }
+
+    setUserProfile(prev => prev?.uid === user.uid ? prev : {
+      uid: user.uid,
+      email: user.email || '',
+      displayName: user.displayName || user.email || 'Thealankar',
+      totalSavings: 0,
+      wishlist: [],
+      walletUsagePercent: 50,
+      savedAddresses: [],
+    });
+
+    getUserProfile(user.uid, user.email || '', user.displayName || '')
+      .then(setUserProfile)
+      .catch(console.error);
     
     // Subscribe to orders
     const unsubOrders = subscribeToUserOrders(user.uid, setUserOrders);
@@ -373,10 +391,8 @@ export default function Profile() {
     }
   };
 
-  // Show skeleton if:
-  // 1. Auth is still determining the user state (loading is true)
-  // 2. User is logged in but profile data hasn't finished loading yet
-  if (loading || (user && !userProfile)) {
+  // Show skeleton only while auth itself is resolving.
+  if (loading) {
     return <ProfileDashboardSkeleton />;
   }
 
