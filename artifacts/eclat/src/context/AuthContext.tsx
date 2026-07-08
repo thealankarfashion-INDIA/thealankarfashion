@@ -105,9 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     setError(null);
+    const redirectTo = new URL(`${import.meta.env.BASE_URL}profile`, window.location.origin).toString();
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.href },
+      options: { redirectTo },
     });
     if (signInError) {
       setError(signInError.message || 'Sign-in failed. Please try again.');
