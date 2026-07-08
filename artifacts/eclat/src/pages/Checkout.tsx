@@ -30,6 +30,63 @@ const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
 const DEFAULT_UPI_ID = import.meta.env.VITE_UPI_ID || "";
 const DEFAULT_UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Thealankar";
 const isRazorpayConfigured = Boolean(RAZORPAY_KEY_ID);
+const CHECKOUT_DETAILS_STORAGE_KEY = "thealankar_checkout_details";
+
+type CheckoutDetails = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+};
+
+const emptyCheckoutDetails: CheckoutDetails = {
+  email: "",
+  firstName: "",
+  lastName: "",
+  phone: "",
+  address: "",
+  city: "",
+  state: "",
+  zip: "",
+};
+
+const checkoutDetailsKey = (uid?: string) => `${CHECKOUT_DETAILS_STORAGE_KEY}:${uid || "guest"}`;
+
+const hasCheckoutDetails = (details: CheckoutDetails | null) =>
+  Boolean(details?.firstName || details?.lastName || details?.phone || details?.address || details?.city || details?.state || details?.zip);
+
+const readSavedCheckoutDetails = (uid?: string): CheckoutDetails | null => {
+  try {
+    const raw = localStorage.getItem(checkoutDetailsKey(uid));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CheckoutDetails>;
+    return {
+      ...emptyCheckoutDetails,
+      email: parsed.email || "",
+      firstName: parsed.firstName || "",
+      lastName: parsed.lastName || "",
+      phone: parsed.phone || "",
+      address: parsed.address || "",
+      city: parsed.city || "",
+      state: parsed.state || "",
+      zip: parsed.zip || "",
+    };
+  } catch {
+    return null;
+  }
+};
+
+const saveCheckoutDetails = (uid: string | undefined, details: CheckoutDetails) => {
+  try {
+    localStorage.setItem(checkoutDetailsKey(uid), JSON.stringify(details));
+  } catch {
+    // Ignore storage failures; the order flow should continue.
+  }
+};
 
 const getGPayLink = (upiLink: string) => {
   const query = upiLink.split("?")[1] || "";
@@ -150,6 +207,8 @@ export default function Checkout() {
 
   // Form & Address Modal
   const [form, setForm] = useState({ email: '', firstName: '', lastName: '', phone: '', address: '', city: '', state: '', zip: '', saveInfo: false });
+  const [savedCheckoutDetails, setSavedCheckoutDetails] = useState<CheckoutDetails | null>(null);
+  const [autoFilledDetails, setAutoFilledDetails] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [locationSet, setLocationSet] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
@@ -199,6 +258,53 @@ export default function Checkout() {
   const resolvedUpiId = storeSettings.upiId.trim();
   const resolvedUpiPayeeName = storeSettings.upiPayeeName.trim() || DEFAULT_UPI_PAYEE_NAME;
   const upiLink = resolvedUpiId ? buildUpiLink(resolvedUpiId, resolvedUpiPayeeName, total, 'ODR') : '';
+
+  const currentCheckoutDetails = useCallback((): CheckoutDetails => ({
+    email: form.email.trim(),
+    firstName: form.firstName.trim(),
+    lastName: form.lastName.trim(),
+    phone: form.phone.trim(),
+    address: form.address.trim(),
+    city: form.city.trim(),
+    state: form.state.trim(),
+    zip: form.zip.trim(),
+  }), [form.address, form.city, form.email, form.firstName, form.lastName, form.phone, form.state, form.zip]);
+
+  const applySavedCheckoutDetails = useCallback((details: CheckoutDetails) => {
+    setForm(p => ({
+      ...p,
+      ...details,
+      saveInfo: true,
+    }));
+    setErrors({});
+    setAutoFilledDetails(true);
+  }, []);
+
+  const persistCurrentCheckoutDetails = useCallback(async () => {
+    const details = currentCheckoutDetails();
+    saveCheckoutDetails(user?.uid, details);
+    setSavedCheckoutDetails(details);
+    setAutoFilledDetails(true);
+
+    if (!user) return;
+
+    await updateUserProfile(user.uid, {
+      displayName: `${details.firstName} ${details.lastName}`.trim(),
+      phoneNumber: details.phone,
+      address: {
+        id: 'default',
+        label: 'Home',
+        name: `${details.firstName} ${details.lastName}`.trim(),
+        phone: details.phone,
+        street: details.address,
+        fullAddress: details.address,
+        city: details.city,
+        state: details.state,
+        zipCode: details.zip,
+        country: 'India'
+      }
+    }).catch(console.error);
+  }, [currentCheckoutDetails, user]);
 
   useEffect(() => {
     if (authLoading || user) return;
@@ -284,21 +390,30 @@ export default function Checkout() {
     if (user) {
       const loadProfile = async () => {
         try {
+          const savedDetails = readSavedCheckoutDetails(user.uid);
+          if (hasCheckoutDetails(savedDetails)) {
+            setSavedCheckoutDetails(savedDetails);
+          }
+
           const profile = await getUserProfile(user.uid, user.email || '', user.displayName || '');
           const defaultAddress = profile.savedAddresses?.find(a => a.isDefault)
-            || (profile.savedAddresses && profile.savedAddresses.length > 0 ? profile.savedAddresses[0] : profile.address);
+            || (profile.savedAddresses && profile.savedAddresses.length > 0 ? profile.savedAddresses[0] : undefined);
+          const profileAddress = profile.address || defaultAddress;
+          const source = savedDetails;
 
           setForm(p => ({
             ...p,
-            email: p.email || profile.email || '',
-            firstName: p.firstName || profile.displayName?.split(' ')[0] || defaultAddress?.name?.split(' ')[0] || '',
-            lastName: p.lastName || profile.displayName?.split(' ').slice(1).join(' ') || defaultAddress?.name?.split(' ').slice(1).join(' ') || '',
-            phone: p.phone || profile.phoneNumber || defaultAddress?.phone || '',
-            address: p.address || (defaultAddress ? [defaultAddress.street, defaultAddress.fullAddress].filter(Boolean).join(', ') : ''),
-            city: p.city || defaultAddress?.city || '',
-            state: p.state || defaultAddress?.state || '',
-            zip: p.zip || defaultAddress?.zipCode || ''
+            email: p.email || source?.email || profile.email || '',
+            firstName: p.firstName || source?.firstName || profile.displayName?.split(' ')[0] || profileAddress?.name?.split(' ')[0] || '',
+            lastName: p.lastName || source?.lastName || profile.displayName?.split(' ').slice(1).join(' ') || profileAddress?.name?.split(' ').slice(1).join(' ') || '',
+            phone: p.phone || source?.phone || profile.phoneNumber || profileAddress?.phone || '',
+            address: p.address || source?.address || (profileAddress ? [profileAddress.street, profileAddress.fullAddress].filter(Boolean).join(', ') : ''),
+            city: p.city || source?.city || profileAddress?.city || '',
+            state: p.state || source?.state || profileAddress?.state || '',
+            zip: p.zip || source?.zip || profileAddress?.zipCode || '',
+            saveInfo: p.saveInfo || hasCheckoutDetails(source)
           }));
+          if (hasCheckoutDetails(savedDetails)) setAutoFilledDetails(true);
           setWalletBalance(profile.totalSavings || 0);
           setWalletUsagePercent(profile.walletUsagePercent || 50);
         } catch (err) {
@@ -394,22 +509,7 @@ export default function Checkout() {
           if (user) {
             if (discount > 0) await addSavings(user.uid, discount).catch(console.error);
             if (walletDiscount > 0) await deductWalletBalance(user.uid, walletDiscount, oid).catch(console.error);
-            await updateUserProfile(user.uid, {
-              displayName: `${form.firstName} ${form.lastName}`.trim(),
-              phoneNumber: form.phone,
-              address: {
-                id: 'default',
-                label: 'Home',
-                name: `${form.firstName} ${form.lastName}`.trim(),
-                phone: form.phone,
-                street: form.address,
-                fullAddress: form.address,
-                city: form.city,
-                state: form.state,
-                zipCode: form.zip,
-                country: 'India'
-              }
-            }).catch(console.error);
+            await persistCurrentCheckoutDetails();
           }
           setOrderId(oid); clearCart(); setLocation('/order-confirmation');
         } catch (err: any) { setError(err.message || 'Verification failed.'); setIsProcessing(false); triggerFailureAnimation(); }
@@ -496,22 +596,7 @@ export default function Checkout() {
         if (user) {
           if (discount > 0) await addSavings(user.uid, discount).catch(console.error);
           if (walletDiscount > 0) await deductWalletBalance(user.uid, walletDiscount, oid).catch(console.error);
-          await updateUserProfile(user.uid, {
-            displayName: `${form.firstName} ${form.lastName}`.trim(),
-            phoneNumber: form.phone,
-            address: {
-              id: 'default',
-              label: 'Home',
-              name: `${form.firstName} ${form.lastName}`.trim(),
-              phone: form.phone,
-              street: form.address,
-              fullAddress: form.address,
-              city: form.city,
-              state: form.state,
-              zipCode: form.zip,
-              country: 'India'
-            }
-          }).catch(console.error);
+          await persistCurrentCheckoutDetails();
         }
         setOrderId(oid); clearCart(); setLocation('/order-confirmation');
       }
@@ -978,6 +1063,26 @@ export default function Checkout() {
               <h3 className="font-bold text-[#8E5E4F] text-sm mb-4 flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[#B47A67]" /> Delivery Location
               </h3>
+              {hasCheckoutDetails(savedCheckoutDetails) && (
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[#E8D8D1] bg-[#FBF6F3] px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#8E5E4F] truncate">
+                      {savedCheckoutDetails?.firstName} {savedCheckoutDetails?.lastName}
+                    </p>
+                    <p className="text-[11px] text-[#8E5E4F]/60 truncate">
+                      {autoFilledDetails ? 'Saved details applied' : savedCheckoutDetails?.phone || savedCheckoutDetails?.address}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => savedCheckoutDetails && applySavedCheckoutDetails(savedCheckoutDetails)}
+                    className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-[#B47A67] border border-[#E8D8D1] hover:border-[#B47A67] transition-colors"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Auto-fill
+                  </button>
+                </div>
+              )}
               {form.address ? (
                 <div className="border border-[#E8D8D1] rounded-xl p-4 flex gap-3 items-center overflow-hidden bg-white group shadow-sm mb-6">
                   <div className="w-10 h-10 rounded-full bg-[#FBF6F3] flex items-center justify-center shrink-0 border border-[#E8D8D1]/50">
