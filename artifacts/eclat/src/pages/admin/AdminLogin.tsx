@@ -4,6 +4,9 @@ import { Eye, EyeOff, Lock, User, Sparkles, ChevronRight, ArrowLeft, Mail } from
 import { Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 
+const ADMIN_USERNAME = "admin";
+const ADMIN_EMAIL = "thealankar.fashion@gmail.com";
+
 interface AdminLoginProps {
   onLogin: () => void;
   mode?: "login" | "reset";
@@ -18,6 +21,11 @@ function getAdminQueryMode() {
   const queryIndex = hash.indexOf("?");
   if (queryIndex === -1) return null;
   return new URLSearchParams(hash.slice(queryIndex + 1));
+}
+
+function getAdminLoginEmail(value: string) {
+  const login = value.trim().toLowerCase();
+  return login === ADMIN_USERNAME ? ADMIN_EMAIL : login;
 }
 
 export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
@@ -97,13 +105,15 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setError("");
     setMessage("");
 
-    if (!username) {
+    const loginEmail = getAdminLoginEmail(username);
+
+    if (!loginEmail) {
       setError("Enter your admin email first, then we can send a reset link.");
       return;
     }
 
     setLoading(true);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(username, {
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(loginEmail, {
       redirectTo: getAdminResetRedirectUrl(),
     });
 
@@ -128,7 +138,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     }
 
     if (authStep === 'username') {
-      if (!username) {
+      if (!username.trim()) {
         setError('Please enter a valid username');
         return;
       }
@@ -137,8 +147,9 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     }
 
     setLoading(true);
+    const loginEmail = getAdminLoginEmail(username);
     const { error: authError } = await supabase.auth.signInWithPassword({
-      email: username,
+      email: loginEmail,
       password,
     });
     if (authError) {
