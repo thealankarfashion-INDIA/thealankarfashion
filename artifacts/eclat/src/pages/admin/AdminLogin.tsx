@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Lock, User, Sparkles, ChevronRight, ArrowLeft, Mail } from "lucide-react";
+import { Eye, EyeOff, Lock, ChevronRight, ArrowLeft, Mail } from "lucide-react";
 import { Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 
-const ADMIN_USERNAME = "admin";
 const ADMIN_EMAIL = "thealankar.fashion@gmail.com";
 
 interface AdminLoginProps {
@@ -13,7 +12,8 @@ interface AdminLoginProps {
 }
 
 function getAdminResetRedirectUrl() {
-  return `${window.location.origin}${import.meta.env.BASE_URL}#/admin?reset=1`;
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  return `${window.location.origin}${basePath}/admin/reset-password`;
 }
 
 function getAdminQueryMode() {
@@ -23,22 +23,26 @@ function getAdminQueryMode() {
   return new URLSearchParams(hash.slice(queryIndex + 1));
 }
 
-function getAdminLoginEmail(value: string) {
-  const login = value.trim().toLowerCase();
-  return login === ADMIN_USERNAME ? ADMIN_EMAIL : login;
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isAdminEmail(value: string) {
+  return normalizeEmail(value) === ADMIN_EMAIL;
 }
 
 export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [authStep, setAuthStep] = useState<'username' | 'password'>('username');
+  const [authStep, setAuthStep] = useState<'email' | 'password'>('email');
   const [resetMode, setResetMode] = useState(mode === "reset");
   const [recoveryReady, setRecoveryReady] = useState(false);
   const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
@@ -97,7 +101,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setConfirmNewPassword("");
     await supabase.auth.signOut();
     setResetMode(false);
-    setAuthStep("username");
+    setAuthStep("email");
     setLoading(false);
   };
 
@@ -105,10 +109,15 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setError("");
     setMessage("");
 
-    const loginEmail = getAdminLoginEmail(username);
+    const loginEmail = normalizeEmail(email);
 
     if (!loginEmail) {
       setError("Enter your admin email first, then we can send a reset link.");
+      return;
+    }
+
+    if (!isAdminEmail(loginEmail)) {
+      setMessage("Password reset link has been sent to your email.");
       return;
     }
 
@@ -118,12 +127,12 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     });
 
     if (resetError) {
-      setError(resetError.message || "Could not send reset email.");
+      setError("Could not send reset link. Please try again.");
       setLoading(false);
       return;
     }
 
-    setMessage("Reset email sent. Check your inbox and open the recovery link.");
+    setMessage("Password reset link has been sent to your email.");
     setLoading(false);
   };
 
@@ -137,23 +146,36 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
       return;
     }
 
-    if (authStep === 'username') {
-      if (!username.trim()) {
-        setError('Please enter a valid username');
+    if (authStep === 'email') {
+      const loginEmail = normalizeEmail(email);
+      if (!loginEmail || !loginEmail.includes("@")) {
+        setError("Please enter the admin email address.");
         return;
       }
+      if (!isAdminEmail(loginEmail)) {
+        setError("This email is not authorized for admin access.");
+        return;
+      }
+      setEmail(loginEmail);
       setAuthStep('password');
       return;
     }
 
     setLoading(true);
-    const loginEmail = getAdminLoginEmail(username);
+    const loginEmail = normalizeEmail(email);
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: loginEmail,
       password,
     });
     if (authError) {
       setError("Invalid credentials. Please check your email and password.");
+      setLoading(false);
+      return;
+    }
+    const { data: userData } = await supabase.auth.getUser();
+    if (!isAdminEmail(userData.user?.email || "")) {
+      await supabase.auth.signOut();
+      setError("This account is not authorized for admin access.");
       setLoading(false);
       return;
     }
@@ -173,7 +195,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
       <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6 md:hidden" />
       
       <h2 className="text-center text-lg font-semibold text-[#8E5E4F] mb-6">
-        {resetMode ? 'Reset Admin Password' : authStep === 'username' ? 'Admin Portal Access' : 'Enter Admin Password'}
+        {resetMode ? 'Reset Admin Password' : authStep === 'email' ? 'Admin Portal Access' : 'Enter Admin Password'}
       </h2>
 
       {error && (
@@ -206,6 +228,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
               <input
                 type={showNewPassword ? "text" : "password"}
                 required
+                disabled={!recoveryReady}
                 placeholder="New Password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -221,14 +244,28 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
               </button>
             </div>
             <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
+                <Lock className="w-5 h-5 text-[#8E5E4F]/50" />
+              </div>
               <input
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 required
+                disabled={!recoveryReady}
                 placeholder="Confirm New Password"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
-                className="w-full pl-4 pr-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all"
+                className="w-full pl-[60px] pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all disabled:opacity-60"
               />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E5E4F]/40 hover:text-[#B47A67] transition-colors"
+              >
+                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <div className="text-[11px] text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
+              Password must be at least 8 characters. Both password fields must match.
             </div>
             {!recoveryReady && (
               <div className="text-xs text-center text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
@@ -236,16 +273,16 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
               </div>
             )}
           </div>
-        ) : authStep === 'username' ? (
+        ) : authStep === 'email' ? (
           <div className="w-full relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
-              <User className="w-5 h-5 text-[#8E5E4F]/50" />
+              <Mail className="w-5 h-5 text-[#8E5E4F]/50" />
             </div>
             <input 
-              type="text" required
+              type="email" required
               placeholder="Enter Admin Email"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               autoFocus
               className="w-full pl-[60px] pr-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-lg text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all"
             />
@@ -253,7 +290,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
         ) : (
           <div className="w-full space-y-3">
             <div className="text-sm text-center text-[#8E5E4F] mb-2 font-medium">
-              {username} <button type="button" onClick={() => setAuthStep('username')} className="text-[#B47A67] underline ml-2 text-xs">Edit</button>
+              {email} <button type="button" onClick={() => setAuthStep('email')} className="text-[#B47A67] underline ml-2 text-xs">Edit</button>
             </div>
             <div className="relative">
               <input type={showPassword ? "text" : "password"} required placeholder="Password"
@@ -278,13 +315,13 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
           </div>
         )}
 
-        <button type="submit" disabled={loading || (!resetMode && !username)}
+        <button type="submit" disabled={loading || (resetMode && !recoveryReady) || (!resetMode && !email)}
           className="w-full py-3.5 mt-2 bg-[#B47A67] text-white rounded-xl text-lg font-bold tracking-wide hover:bg-[#8E5E4F] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
           {loading ? (
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
           ) : (
             <span className="flex items-center justify-center gap-2">
-              {resetMode ? 'Update Password' : authStep === 'username' ? 'Continue' : 'Sign In'}
+              {resetMode ? 'Update Password' : authStep === 'email' ? 'Continue' : 'Sign In'}
               <ChevronRight className="w-5 h-5" />
             </span>
           )}

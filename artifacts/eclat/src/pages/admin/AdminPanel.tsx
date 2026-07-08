@@ -3,14 +3,22 @@ import { AdminLogin } from "./AdminLogin";
 import { AdminDashboard } from "./AdminDashboard";
 import { supabase } from "@/lib/supabase";
 
+function isAdminResetLocation() {
+  if (typeof window === "undefined") return false;
+  const hash = window.location.hash || "";
+  const path = window.location.pathname || "";
+  return (
+    hash.startsWith("#/admin/reset-password") ||
+    hash.includes("reset=1") ||
+    hash.includes("type=recovery") ||
+    path.endsWith("/admin/reset-password")
+  );
+}
+
 export function AdminPanel() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [resetMode, setResetMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const hash = window.location.hash || "";
-    return hash.includes("reset=1") || hash.includes("type=recovery");
-  });
+  const [resetMode, setResetMode] = useState(() => isAdminResetLocation());
 
   const verifyAdmin = async () => {
     const { data: session } = await supabase.auth.getSession();
@@ -20,22 +28,27 @@ export function AdminPanel() {
       return;
     }
     const { data, error } = await supabase.rpc("is_admin");
-    setLoggedIn(!error && data === true);
+    const isAuthorized = !error && data === true;
+    if (!isAuthorized && !isAdminResetLocation()) {
+      await supabase.auth.signOut();
+    }
+    setLoggedIn(isAuthorized);
     setChecking(false);
   };
 
   useEffect(() => {
     void verifyAdmin();
     const syncResetMode = () => {
-      const hash = window.location.hash || "";
-      setResetMode(hash.includes("reset=1") || hash.includes("type=recovery"));
+      setResetMode(isAdminResetLocation());
     };
     syncResetMode();
     window.addEventListener("hashchange", syncResetMode);
+    window.addEventListener("popstate", syncResetMode);
     const { data } = supabase.auth.onAuthStateChange(() => void verifyAdmin());
     return () => {
       data.subscription.unsubscribe();
       window.removeEventListener("hashchange", syncResetMode);
+      window.removeEventListener("popstate", syncResetMode);
     };
   }, []);
 

@@ -70,6 +70,7 @@ function Router() {
         <Route path="/wallet" component={Wallet} />
         <Route path="/order-confirmation" component={OrderConfirmation} />
         <Route path="/admin" component={AdminPanel} />
+        <Route path="/admin/reset-password" component={AdminPanel} />
         <Route path="/terms" component={TermsOfService} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route component={NotFound} />
@@ -79,12 +80,22 @@ function Router() {
 }
 
 function App() {
-  const [isAdmin, setIsAdmin] = useState(() => window.location.hash.startsWith("#/admin"));
+  const isAdminLocation = () => {
+    const hash = window.location.hash || "";
+    const path = window.location.pathname || "";
+    return hash.startsWith("#/admin") || path.endsWith("/admin") || path.endsWith("/admin/reset-password");
+  };
+
+  const [isAdmin, setIsAdmin] = useState(() => isAdminLocation());
 
   useEffect(() => {
-    const onHash = () => setIsAdmin(window.location.hash.startsWith("#/admin"));
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
+    const onLocationChange = () => setIsAdmin(isAdminLocation());
+    window.addEventListener("hashchange", onLocationChange);
+    window.addEventListener("popstate", onLocationChange);
+    return () => {
+      window.removeEventListener("hashchange", onLocationChange);
+      window.removeEventListener("popstate", onLocationChange);
+    };
   }, []);
 
   useEffect(() => {
