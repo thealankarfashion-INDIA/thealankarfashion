@@ -8,9 +8,9 @@ import type { Category } from "../lib/types";
 let cachedCategories: Category[] | null = null;
 let fetchPromise: Promise<Category[]> | null = null;
 
-export default function useStoreCategories() {
+export default function useStoreCategories(enabled = true) {
   const [categories, setCategories] = useState<Category[]>(cachedCategories || []);
-  const [loading, setLoading] = useState<boolean>(!cachedCategories);
+  const [loading, setLoading] = useState<boolean>(enabled && !cachedCategories);
   const [error, setError] = useState<any>(null);
   const [retryCount, setRetryCount] = useState(0);
 
@@ -24,6 +24,11 @@ export default function useStoreCategories() {
 
   useEffect(() => {
     let isMounted = true;
+
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
 
     if (cachedCategories) {
       setCategories(cachedCategories);
@@ -92,7 +97,7 @@ export default function useStoreCategories() {
     return () => {
       isMounted = false;
     };
-  }, [retryCount]);
+  }, [enabled, retryCount]);
 
   return { categories, loading, error, retry };
 }

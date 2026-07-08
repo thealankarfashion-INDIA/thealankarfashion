@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -73,8 +73,6 @@ const FloatingInput = ({ label, value, onChange, actionText, isClearable, type =
 export default function Profile() {
   const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, logout, loading, error, clearError, googleAuthEnabled } = useAuth();
   const { items: wishlistIds } = useWishlist();
-  const { products } = useStoreProducts();
-  const { categories } = useStoreCategories();
   const [, setLocation] = useLocation();
   const searchParams = useSearch();
 
@@ -104,6 +102,14 @@ export default function Profile() {
   const [openAddressMenuId, setOpenAddressMenuId] = useState<string | null>(null);
   const [showRateAppModal, setShowRateAppModal] = useState(false);
   const checkoutNextPath = new URLSearchParams(searchParams).get('next');
+  const shouldLoadProducts = activeTab === 'stylist' || (activeTab === 'wishlist' && wishlistIds.length > 0);
+  const shouldLoadCategories = activeTab === 'stylist';
+  const { products } = useStoreProducts(shouldLoadProducts);
+  const { categories } = useStoreCategories(shouldLoadCategories);
+  const wishlistProducts = useMemo(
+    () => products.filter((product) => wishlistIds.includes(product.id)),
+    [products, wishlistIds]
+  );
 
   useEffect(() => {
     if (checkoutNextPath?.startsWith('/')) {
@@ -1483,7 +1489,7 @@ export default function Profile() {
                                 <Heart className="fill-white w-3 h-3" /> My List
                               </button>
                               <div className="flex-none flex items-center gap-1 border border-[#E8D8D1] rounded-lg px-3 py-1.5 text-[11px] font-bold text-[#8E5E4F] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-                                {products.filter(p => wishlistIds.includes(p.id)).length} Products
+                                {wishlistProducts.length} Products
                               </div>
                             </div>
                           </div>
@@ -1494,7 +1500,7 @@ export default function Profile() {
                           <div className="flex items-center justify-between">
                             <h2 className="font-serif text-3xl text-[#8E5E4F]">My Wishlist</h2>
                             <div className="text-sm text-[#8E5E4F]/50 font-medium">
-                              {products.filter(p => wishlistIds.includes(p.id)).length} items saved
+                              {wishlistProducts.length} items saved
                             </div>
                           </div>
                         </div>
@@ -1512,8 +1518,7 @@ export default function Profile() {
                             </div>
                           ) : (
                             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-6">
-                              {products
-                                .filter(p => wishlistIds.includes(p.id))
+                              {wishlistProducts
                                 .map((product, i) => (
                                   <ProductCard key={product.id} product={product} index={i} />
                                 ))}

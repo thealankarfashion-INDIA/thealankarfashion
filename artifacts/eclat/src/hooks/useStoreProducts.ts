@@ -2,12 +2,13 @@
 import { useCallback, useEffect } from "react";
 import { useStoreData } from "../context/StoreDataContext";
 
-export default function useStoreProducts() {
+export default function useStoreProducts(enabled = true) {
   const { products, productsLoading, ensureProductsLoaded } = useStoreData();
 
   useEffect(() => {
+    if (!enabled) return;
     ensureProductsLoaded();
-  }, [ensureProductsLoaded]);
+  }, [enabled, ensureProductsLoaded]);
 
   const retry = useCallback(() => {
     ensureProductsLoaded();
