@@ -75,8 +75,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
     <div className={`${mobile ? "flex flex-col h-full" : "hidden lg:flex flex-col h-full"}`}>
       <div className="px-6 py-6 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl overflow-hidden">
-            <img src="/images/tamil-jewelry/PHOTO-2026-05-30-12-48-46.jpg" alt="Thealankar" className="h-full w-full object-cover" />
+          <div className="h-9 w-9 rounded-xl bg-white/12 border border-white/15 flex items-center justify-center shadow-sm">
+            <span className="font-serif italic text-white text-lg leading-none">T</span>
           </div>
           <div>
             <div className="font-serif italic text-white text-sm">Thealankar</div>
