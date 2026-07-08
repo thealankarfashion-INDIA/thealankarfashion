@@ -26,6 +26,55 @@ $$;
 grant usage on schema public to anon, authenticated;
 grant execute on function public.is_admin() to authenticated;
 
+create or replace function public.admin_upsert_json_doc(
+  target_table text,
+  doc_id text,
+  doc_data jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Only admins can save this setting.';
+  end if;
+
+  if target_table not in (
+    'site_settings',
+    'delivery_settings',
+    'products',
+    'categories',
+    'brands',
+    'offers',
+    'main_banners',
+    'announcements',
+    'testing_videos',
+    'orders',
+    'coupons',
+    'user_coupons',
+    'referrals',
+    'wallet_transactions',
+    'app_ratings',
+    'support_messages'
+  ) then
+    raise exception 'Table is not allowed for admin save: %', target_table;
+  end if;
+
+  execute format(
+    'insert into public.%I (id, data, created_at, updated_at)
+     values ($1, $2, now(), now())
+     on conflict (id) do update
+     set data = excluded.data, updated_at = now()',
+    target_table
+  )
+  using doc_id, doc_data;
+end;
+$$;
+
+grant execute on function public.admin_upsert_json_doc(text, text, jsonb) to authenticated;
+
 -- Make the current store email an admin. Change the email if you use another admin account.
 insert into public.admin_roles (user_id)
 select id

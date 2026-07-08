@@ -221,7 +221,19 @@ export async function setDoc(ref: Ref, data: Record<string, any>, options?: { me
   const payload: Record<string, any> = { id, ...storedPayload(merged) };
   if (ref.parent?.userId) payload.user_id = ref.parent.userId;
   const { error } = await supabase.from(ref.table).upsert(payload, { onConflict: 'id' });
-  if (error) throw error;
+  if (!error) return;
+
+  if (ref.table === 'site_settings' || ref.table === 'delivery_settings') {
+    const { error: rpcError } = await supabase.rpc('admin_upsert_json_doc', {
+      target_table: ref.table,
+      doc_id: id,
+      doc_data: merged,
+    });
+    if (!rpcError) return;
+    throw rpcError;
+  }
+
+  throw error;
 }
 
 export async function addDoc(ref: Ref, data: Record<string, any>) {
