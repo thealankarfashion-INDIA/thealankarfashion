@@ -6,6 +6,11 @@ import { supabase } from "@/lib/supabase";
 export function AdminPanel() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [resetMode, setResetMode] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const hash = window.location.hash || "";
+    return hash.includes("reset=1") || hash.includes("type=recovery");
+  });
 
   const verifyAdmin = async () => {
     const { data: session } = await supabase.auth.getSession();
@@ -21,8 +26,17 @@ export function AdminPanel() {
 
   useEffect(() => {
     void verifyAdmin();
+    const syncResetMode = () => {
+      const hash = window.location.hash || "";
+      setResetMode(hash.includes("reset=1") || hash.includes("type=recovery"));
+    };
+    syncResetMode();
+    window.addEventListener("hashchange", syncResetMode);
     const { data } = supabase.auth.onAuthStateChange(() => void verifyAdmin());
-    return () => data.subscription.unsubscribe();
+    return () => {
+      data.subscription.unsubscribe();
+      window.removeEventListener("hashchange", syncResetMode);
+    };
   }, []);
 
   const handleLogin = async () => {
@@ -42,6 +56,7 @@ export function AdminPanel() {
       </div>
     );
   }
+  if (resetMode) return <AdminLogin onLogin={handleLogin} mode="reset" />;
   if (!loggedIn) return <AdminLogin onLogin={handleLogin} />;
   return <AdminDashboard onLogout={handleLogout} />;
 }

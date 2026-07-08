@@ -1,24 +1,131 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Lock, User, Sparkles, ChevronRight, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Lock, User, Sparkles, ChevronRight, ArrowLeft, Mail } from "lucide-react";
 import { Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 
 interface AdminLoginProps {
   onLogin: () => void;
+  mode?: "login" | "reset";
 }
 
-export function AdminLogin({ onLogin }: AdminLoginProps) {
+function getAdminResetRedirectUrl() {
+  return `${window.location.origin}${import.meta.env.BASE_URL}#/admin?reset=1`;
+}
+
+function getAdminQueryMode() {
+  const hash = window.location.hash || "";
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex === -1) return null;
+  return new URLSearchParams(hash.slice(queryIndex + 1));
+}
+
+export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [authStep, setAuthStep] = useState<'username' | 'password'>('username');
+  const [resetMode, setResetMode] = useState(mode === "reset");
+  const [recoveryReady, setRecoveryReady] = useState(false);
+  const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
+  const queryMode = queryParams?.get("reset") === "1" ? "reset" : queryParams?.get("type") === "recovery" ? "recovery" : "";
+
+  useEffect(() => {
+    if (mode === "reset" || queryMode === "reset" || queryMode === "recovery") {
+      setResetMode(true);
+    }
+  }, [mode, queryMode]);
+
+  useEffect(() => {
+    if (!resetMode) return;
+
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      setRecoveryReady(!!data.session);
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setRecoveryReady(!!session);
+    });
+
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
+  }, [resetMode]);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setMessage("");
+
+    if (!newPassword || newPassword.length < 8) {
+      setError("Please enter a password with at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setError("The new passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+    if (updateError) {
+      setError(updateError.message || "Password reset failed. Please try again.");
+      setLoading(false);
+      return;
+    }
+
+    setMessage("Password updated. Please sign in again with your new password.");
+    setNewPassword("");
+    setConfirmNewPassword("");
+    await supabase.auth.signOut();
+    setResetMode(false);
+    setAuthStep("username");
+    setLoading(false);
+  };
+
+  const sendResetEmail = async () => {
+    setError("");
+    setMessage("");
+
+    if (!username) {
+      setError("Enter your admin email first, then we can send a reset link.");
+      return;
+    }
+
+    setLoading(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(username, {
+      redirectTo: getAdminResetRedirectUrl(),
+    });
+
+    if (resetError) {
+      setError(resetError.message || "Could not send reset email.");
+      setLoading(false);
+      return;
+    }
+
+    setMessage("Reset email sent. Check your inbox and open the recovery link.");
+    setLoading(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setMessage("");
+
+    if (resetMode) {
+      await handleResetPassword(e);
+      return;
+    }
 
     if (authStep === 'username') {
       if (!username) {
@@ -55,7 +162,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
       <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6 md:hidden" />
       
       <h2 className="text-center text-lg font-semibold text-[#8E5E4F] mb-6">
-        {authStep === 'username' ? 'Admin Portal Access' : 'Enter Admin Password'}
+        {resetMode ? 'Reset Admin Password' : authStep === 'username' ? 'Admin Portal Access' : 'Enter Admin Password'}
       </h2>
 
       {error && (
@@ -65,11 +172,60 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
           className="mb-4 p-3 bg-red-50 text-red-600 text-xs rounded-xl text-center font-medium border border-red-100"
         >
           {error}
+          </motion.div>
+      )}
+
+      {message && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-4 p-3 bg-green-50 text-green-700 text-xs rounded-xl text-center font-medium border border-green-100"
+        >
+          {message}
         </motion.div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4 flex flex-col items-center w-full">
-        {authStep === 'username' ? (
+        {resetMode ? (
+          <div className="w-full space-y-3">
+            <div className="w-full relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
+                <Lock className="w-5 h-5 text-[#8E5E4F]/50" />
+              </div>
+              <input
+                type={showNewPassword ? "text" : "password"}
+                required
+                placeholder="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoFocus
+                className="w-full pl-[60px] pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-lg text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E5E4F]/40 hover:text-[#B47A67] transition-colors"
+              >
+                {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+            <div className="relative">
+              <input
+                type="password"
+                required
+                placeholder="Confirm New Password"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                className="w-full pl-4 pr-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all"
+              />
+            </div>
+            {!recoveryReady && (
+              <div className="text-xs text-center text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
+                Open the password reset email from this device first so Supabase can verify the recovery session.
+              </div>
+            )}
+          </div>
+        ) : authStep === 'username' ? (
           <div className="w-full relative">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
               <User className="w-5 h-5 text-[#8E5E4F]/50" />
@@ -100,20 +256,39 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            <button
+              type="button"
+              onClick={sendResetEmail}
+              className="w-full text-xs font-semibold tracking-wide text-[#B47A67] hover:text-[#8E5E4F] transition-colors flex items-center justify-center gap-2"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Forgot password? Send reset email
+            </button>
           </div>
         )}
 
-        <button type="submit" disabled={loading || !username}
+        <button type="submit" disabled={loading || (!resetMode && !username)}
           className="w-full py-3.5 mt-2 bg-[#B47A67] text-white rounded-xl text-lg font-bold tracking-wide hover:bg-[#8E5E4F] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
           {loading ? (
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
           ) : (
             <span className="flex items-center justify-center gap-2">
-              {authStep === 'username' ? 'Continue' : 'Sign In'}
+              {resetMode ? 'Update Password' : authStep === 'username' ? 'Continue' : 'Sign In'}
               <ChevronRight className="w-5 h-5" />
             </span>
           )}
         </button>
+        {!resetMode && authStep === 'password' && (
+          <button
+            type="button"
+            onClick={() => {
+              void sendResetEmail();
+            }}
+            className="text-xs font-semibold tracking-wide text-[#8E5E4F]/60 hover:text-[#B47A67] transition-colors"
+          >
+            Reset password instead
+          </button>
+        )}
       </form>
 
       <div className="mt-auto pt-8 text-center">
