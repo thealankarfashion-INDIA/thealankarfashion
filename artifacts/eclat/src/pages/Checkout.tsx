@@ -518,14 +518,14 @@ export default function Checkout() {
             await persistCurrentCheckoutDetails();
           }
           setOrderId(oid); clearCart(); setLocation('/order-confirmation');
-        } catch (err: any) { setError(err.message || 'Verification failed.'); setIsProcessing(false); triggerFailureAnimation(); }
+        } catch (err: any) { setError(err.message || 'Payment verification failed. Please try again or contact support.'); setIsProcessing(false); }
       },
       prefill: { name: `${form.firstName} ${form.lastName}`, email: form.email, contact: form.phone },
       theme: { color: '#B47A67' },
-      modal: { ondismiss: () => { setError('Payment cancelled.'); setIsProcessing(false); triggerFailureAnimation(); } }
+      modal: { ondismiss: () => { setError('Payment cancelled. You can retry safely.'); setIsProcessing(false); } }
     };
     const rzp = new (window as any).Razorpay(options);
-    rzp.on('payment.failed', (r: any) => { setError(r.error.description || 'Payment failed.'); rzp.close(); setIsProcessing(false); triggerFailureAnimation(); });
+    rzp.on('payment.failed', (r: any) => { setError(r.error.description || 'Payment failed. Please retry.'); rzp.close(); setIsProcessing(false); });
     rzp.open();
   };
 
@@ -607,7 +607,7 @@ export default function Checkout() {
         }
         setOrderId(oid); clearCart(); setLocation('/order-confirmation');
       }
-    } catch (err: any) { setError(err.message || 'Failed to place order.'); setIsProcessing(false); triggerFailureAnimation(); }
+    } catch (err: any) { setError(err.message || 'Failed to start payment. Please retry.'); setIsProcessing(false); }
   };
 
   if (failurePhase === 'progress') {
