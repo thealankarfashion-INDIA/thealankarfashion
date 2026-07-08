@@ -13,6 +13,7 @@ interface AuthContextType {
   user: AppUser | null;
   loading: boolean;
   isAuthenticated: boolean;
+  googleAuthEnabled: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, pass: string) => Promise<void>;
@@ -81,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const googleAuthEnabled = import.meta.env.VITE_GOOGLE_AUTH_ENABLED === 'true';
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -105,6 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     setError(null);
+    if (!googleAuthEnabled) {
+      const providerError = 'Google sign-in is not enabled yet. Please use email login for now.';
+      setError(providerError);
+      throw new Error(providerError);
+    }
     const redirectTo = new URL(`${import.meta.env.BASE_URL}profile`, window.location.origin).toString();
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -114,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(signInError.message || 'Sign-in failed. Please try again.');
       throw signInError;
     }
-  }, []);
+  }, [googleAuthEnabled]);
 
   const signInWithEmail = useCallback(async (email: string, pass: string) => {
     setError(null);
@@ -160,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         isAuthenticated: !!user,
+        googleAuthEnabled,
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
