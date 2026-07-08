@@ -1,5 +1,5 @@
 import { Link } from 'wouter';
-import { Instagram, MapPin } from 'lucide-react';
+import { Instagram } from 'lucide-react';
 import { SiWhatsapp, SiGmail } from 'react-icons/si';
 
 export default function Footer() {
