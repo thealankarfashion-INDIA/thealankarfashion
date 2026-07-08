@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useStoreData } from './StoreDataContext';
 
 export interface CartItem {
   productId: string;
@@ -32,20 +33,47 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const { products, ensureProductsLoaded } = useStoreData();
 
   useEffect(() => {
     try {
       const savedCart = localStorage.getItem('thealankar_cart');
       if (savedCart) {
-        const parsed = JSON.parse(savedCart);
+        const parsed = JSON.parse(savedCart) as Partial<CartItem>[];
         // images are stripped on save; they'll be re-fetched from the product catalog
-        setItems(parsed);
+        setItems(parsed.map((item) => ({ ...item, image: item.image || '' } as CartItem)));
       }
     } catch (e) {
       console.warn('Cart restore failed, resetting.', e);
       localStorage.removeItem('thealankar_cart');
     }
   }, []);
+
+  useEffect(() => {
+    if (items.length > 0 && items.some((item) => !item.image)) {
+      ensureProductsLoaded();
+    }
+  }, [items, ensureProductsLoaded]);
+
+  useEffect(() => {
+    if (products.length === 0 || items.length === 0) return;
+
+    setItems((prev) => {
+      let changed = false;
+      const hydrated = prev.map((item) => {
+        if (item.image) return item;
+
+        const product = products.find((p) => p.id === item.productId);
+        const image = product?.image || product?.images?.[0] || '';
+        if (!image) return item;
+
+        changed = true;
+        return { ...item, image };
+      });
+
+      return changed ? hydrated : prev;
+    });
+  }, [products, items.length]);
 
   useEffect(() => {
     try {
