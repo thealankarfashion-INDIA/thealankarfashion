@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
   return json({
     appOrderId,
     razorpayOrderId: razorpayOrder.id,
+    keyId,
     amount: razorpayOrder.amount,
     currency: razorpayOrder.currency,
   });

@@ -5,7 +5,7 @@ export async function createRazorpayOrder(appOrderId: string) {
     body: { appOrderId },
   });
   if (error) throw new Error(error.message || 'Unable to create payment order.');
-  return data as { razorpayOrderId: string; amount: number; currency: string; appOrderId: string };
+  return data as { razorpayOrderId: string; keyId?: string; amount: number; currency: string; appOrderId: string };
 }
 
 export async function verifyRazorpayPayment(payload: {

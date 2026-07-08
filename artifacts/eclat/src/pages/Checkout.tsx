@@ -29,7 +29,7 @@ const lbl = "block text-xs tracking-widest uppercase text-[#8E5E4F]/70 mb-2";
 const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
 const DEFAULT_UPI_ID = import.meta.env.VITE_UPI_ID || "";
 const DEFAULT_UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Thealankar";
-const isRazorpayConfigured = Boolean(RAZORPAY_KEY_ID);
+const isRazorpayConfigured = true;
 const CHECKOUT_DETAILS_STORAGE_KEY = "thealankar_checkout_details";
 
 type CheckoutDetails = {
@@ -496,8 +496,14 @@ export default function Checkout() {
     const loaded = await loadRazorpayScript();
     if (!loaded) { setError('Failed to load payment gateway.'); setIsProcessing(false); return; }
     const paymentOrder = await createRazorpayOrder(oid);
+    const razorpayKey = RAZORPAY_KEY_ID || paymentOrder.keyId;
+    if (!razorpayKey) {
+      setError('Razorpay key is missing. Please add the public Razorpay Key ID before accepting online payment.');
+      setIsProcessing(false);
+      return;
+    }
     const options = {
-      key: RAZORPAY_KEY_ID,
+      key: razorpayKey,
       amount: paymentOrder.amount,
       currency: paymentOrder.currency,
       order_id: paymentOrder.razorpayOrderId,
@@ -528,7 +534,8 @@ export default function Checkout() {
     if (isBelowMin || items.length === 0) return;
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    if (paymentMethod === 'upi') {
+    const selectedPaymentMethod = paymentMethod === 'upi' && !resolvedUpiId ? 'razorpay' : paymentMethod;
+    if (selectedPaymentMethod === 'upi') {
       if (!resolvedUpiId) {
         setError('UPI ID is not configured. Add the store UPI ID in admin settings before accepting UPI payment.');
         paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -574,12 +581,12 @@ export default function Checkout() {
         city: form.city, state: form.state, pincode: form.zip,
         items: orderItems as any, subtotal: cartTotal, discount: discount + walletDiscount, shipping: deliveryCharge, total,
         promoCode: promoCode?.code || undefined,
-        paymentMethod: paymentMethod === 'upi' ? 'Manual UPI' : 'Razorpay',
+        paymentMethod: selectedPaymentMethod === 'upi' ? 'Manual UPI' : 'Razorpay',
         deliveryType,
         orderStatus: 'Payment Pending',
         orderNote: orderNote.trim() || undefined,
       });
-      if (paymentMethod === 'razorpay') {
+      if (selectedPaymentMethod === 'razorpay') {
         await handleRazorpay(oid);
       } else {
         let screenshotUrl = '';
@@ -1189,16 +1196,18 @@ export default function Checkout() {
                   <input type="radio" name="payment" checked={paymentMethod === 'razorpay'} onChange={() => { if (isRazorpayConfigured) { setPaymentMethod('razorpay'); setIsUpiPaymentOpen(false); } }} disabled={!isRazorpayConfigured} className="accent-[#B47A67] w-4 h-4" />
                 </label>
 
-                <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'upi' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white'}`}>
-                  <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 border border-[#E8D8D1]">
-                    <Smartphone className={`w-4 h-4 ${paymentMethod === 'upi' ? 'text-[#B47A67]' : 'text-[#8E5E4F]/40'}`} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-[#8E5E4F]">Pay by UPI QR</div>
-                    <div className="text-xs text-[#8E5E4F]/50">Scan QR, then enter transaction ID</div>
-                  </div>
-                  <input type="radio" name="payment" checked={paymentMethod === 'upi'} onChange={() => { setPaymentMethod('upi'); setIsUpiPaymentOpen(false); }} className="accent-[#B47A67] w-4 h-4" />
-                </label>
+                {resolvedUpiId && (
+                  <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'upi' ? 'border-[#B47A67] bg-[#B47A67]/5' : 'border-[#E8D8D1] bg-white'}`}>
+                    <div className="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0 border border-[#E8D8D1]">
+                      <Smartphone className={`w-4 h-4 ${paymentMethod === 'upi' ? 'text-[#B47A67]' : 'text-[#8E5E4F]/40'}`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-bold text-[#8E5E4F]">Pay by UPI QR</div>
+                      <div className="text-xs text-[#8E5E4F]/50">Scan QR, then enter transaction ID</div>
+                    </div>
+                    <input type="radio" name="payment" checked={paymentMethod === 'upi'} onChange={() => { setPaymentMethod('upi'); setIsUpiPaymentOpen(false); }} className="accent-[#B47A67] w-4 h-4" />
+                  </label>
+                )}
 
                 {paymentMethod === 'upi' && isUpiPaymentOpen && (
                   <div className="rounded-2xl border border-[#E8D8D1] bg-[#FBF6F3] p-4">
