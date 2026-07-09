@@ -6,11 +6,14 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const authHeader = req.headers.get('authorization') || '';
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  const authClient = createClient(supabaseUrl, serviceRoleKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const { data: userData, error: userError } = await authClient.auth.getUser();
   if (userError || !userData.user) return json({ error: 'Authentication required' }, 401);
 
   const body = await req.json().catch(() => ({}));
@@ -19,7 +22,9 @@ Deno.serve(async (req) => {
     return json({ error: 'Invalid payment payload' }, 400);
   }
 
-  const expected = await hmacSha256Hex(Deno.env.get('RAZORPAY_KEY_SECRET')!, `${razorpay_order_id}|${razorpay_payment_id}`);
+  const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
+  if (!keySecret) return json({ error: 'Razorpay keys are not configured' }, 500);
+  const expected = await hmacSha256Hex(keySecret, `${razorpay_order_id}|${razorpay_payment_id}`);
   if (!timingSafeEqual(expected, razorpay_signature)) return json({ error: 'Invalid payment signature' }, 400);
 
   const { data: payment, error: paymentError } = await supabase

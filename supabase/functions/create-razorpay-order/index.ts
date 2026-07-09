@@ -5,11 +5,14 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const authHeader = req.headers.get('authorization') || '';
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  const authClient = createClient(supabaseUrl, serviceRoleKey, {
     global: { headers: { Authorization: authHeader } },
   });
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const { data: userData, error: userError } = await authClient.auth.getUser();
   if (userError || !userData.user) return json({ error: 'Authentication required' }, 401);
 
   const { appOrderId } = await req.json().catch(() => ({}));
@@ -26,8 +29,10 @@ Deno.serve(async (req) => {
   const amountPaise = Math.round(Number(order.total || order.data?.total || 0) * 100);
   if (!Number.isFinite(amountPaise) || amountPaise <= 0) return json({ error: 'Invalid order amount' }, 400);
 
-  const keyId = Deno.env.get('RAZORPAY_KEY_ID')!;
-  const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET')!;
+  const keyId = Deno.env.get('RAZORPAY_KEY_ID');
+  const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
+  if (!keyId || !keySecret) return json({ error: 'Razorpay keys are not configured' }, 500);
+
   const basic = btoa(`${keyId}:${keySecret}`);
   const response = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
@@ -40,7 +45,13 @@ Deno.serve(async (req) => {
     }),
   });
   const razorpayOrder = await response.json();
-  if (!response.ok) return json({ error: 'Payment order creation failed' }, 502);
+  if (!response.ok) {
+    return json({
+      error: razorpayOrder?.error?.description || 'Payment order creation failed',
+      code: razorpayOrder?.error?.code,
+      reason: razorpayOrder?.error?.reason,
+    }, 502);
+  }
 
   await supabase.from('payments').upsert({
     order_id: appOrderId,

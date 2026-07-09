@@ -4,7 +4,11 @@ export async function createRazorpayOrder(appOrderId: string) {
   const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
     body: { appOrderId },
   });
-  if (error) throw new Error(error.message || 'Unable to create payment order.');
+  if (error) {
+    const response = (error as any).context;
+    const details = response instanceof Response ? await response.json().catch(() => null) : null;
+    throw new Error(details?.error || error.message || 'Unable to create payment order.');
+  }
   return data as { razorpayOrderId: string; keyId?: string; amount: number; currency: string; appOrderId: string };
 }
 
@@ -17,6 +21,10 @@ export async function verifyRazorpayPayment(payload: {
   const { data, error } = await supabase.functions.invoke('verify-razorpay-payment', {
     body: payload,
   });
-  if (error) throw new Error(error.message || 'Payment verification failed.');
+  if (error) {
+    const response = (error as any).context;
+    const details = response instanceof Response ? await response.json().catch(() => null) : null;
+    throw new Error(details?.error || error.message || 'Payment verification failed.');
+  }
   return data as { ok: boolean };
 }
