@@ -16,6 +16,7 @@ import { getDB } from './supabase';
 import type { Order, OrderStatus } from './types';
 
 const ORDERS_COLLECTION = 'orders';
+const STOCK_RESERVATION_MS = 5 * 60 * 1000;
 
 /** Generate a unique order ID like "ECL-A1B2C3" */
 export function generateOrderId(): string {
@@ -36,38 +37,103 @@ function stripUndefined(obj: Record<string, any>): Record<string, any> {
   return clean;
 }
 
+function asMillis(value: any): number {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (typeof value.seconds === 'number') return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function adjustOrderStock(order: Pick<Order, 'items'>, direction: -1 | 1): Promise<void> {
+  const db = getDB();
+  if (!Array.isArray(order.items)) return;
+
+  for (const item of order.items as any[]) {
+    if (item.id && !item.id.includes('FREE-GIFT')) {
+      try {
+        const productRef = doc(db, 'products', item.id);
+        const pSnap = await getDoc(productRef);
+        if (pSnap.exists()) {
+          const data = pSnap.data();
+          if (data.stockQuantity !== undefined) {
+            const currentStock = Number(data.stockQuantity) || 0;
+            const nextStock = Math.max(0, currentStock + direction * (item.quantity || 1));
+            await updateDoc(productRef, {
+              stockQuantity: nextStock,
+              inStock: nextStock > 0,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to adjust stock for product", item.id, e);
+      }
+    }
+  }
+}
+
 /** Create a new order in Firestore */
 export async function createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   const db = getDB();
   const docRef = doc(db, ORDERS_COLLECTION, order.orderId);
+  const reservationExpiresAt = new Date(Date.now() + STOCK_RESERVATION_MS).toISOString();
   await setDoc(docRef, {
     ...stripUndefined(order as Record<string, any>),
+    stockReserved: true,
+    stockRestored: false,
+    reservationExpiresAt,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 
-  // Deduct stock for each item in the order
-  if (Array.isArray(order.items)) {
-    for (const item of order.items as any[]) {
-      if (item.id && !item.id.includes('FREE-GIFT')) {
-        try {
-          const productRef = doc(db, 'products', item.id);
-          const pSnap = await getDoc(productRef);
-          if (pSnap.exists()) {
-            const data = pSnap.data();
-            if (data.stockQuantity !== undefined) {
-              const newStock = Math.max(0, data.stockQuantity - (item.quantity || 1));
-              await updateDoc(productRef, { stockQuantity: newStock });
-            }
-          }
-        } catch (e) {
-          console.error("Failed to update stock for product", item.id, e);
-        }
-      }
+  // Reserve stock only after the customer starts payment.
+  await adjustOrderStock(order, -1);
+
+  return order.orderId;
+}
+
+/** Restore reserved stock when payment is not completed in time. */
+export async function releaseOrderStock(orderId: string): Promise<boolean> {
+  const db = getDB();
+  const docRef = doc(db, ORDERS_COLLECTION, orderId);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) return false;
+
+  const order = { id: snap.id, ...snap.data() } as Order;
+  if (order.orderStatus !== 'Payment Pending' || !order.stockReserved || order.stockRestored) {
+    return false;
+  }
+
+  await adjustOrderStock(order, 1);
+  await updateDoc(docRef, {
+    orderStatus: 'Cancelled' as OrderStatus,
+    stockRestored: true,
+    stockRestoredAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return true;
+}
+
+/** Clean up any pending payment reservations that already crossed the 5 minute window. */
+export async function releaseExpiredPaymentPendingOrders(): Promise<number> {
+  const db = getDB();
+  const snap = await getDocs(query(
+    collection(db, ORDERS_COLLECTION),
+    where('orderStatus', '==', 'Payment Pending')
+  ));
+  const now = Date.now();
+  let restored = 0;
+
+  for (const docSnap of snap.docs) {
+    const order = { id: docSnap.id, ...docSnap.data() } as Order;
+    const expiry = asMillis(order.reservationExpiresAt);
+    if (order.stockReserved && !order.stockRestored && expiry > 0 && expiry <= now) {
+      if (await releaseOrderStock(order.orderId || docSnap.id)) restored += 1;
     }
   }
 
-  return order.orderId;
+  return restored;
 }
 
 /** Update order with payment confirmation (transaction ID + screenshot URL) */

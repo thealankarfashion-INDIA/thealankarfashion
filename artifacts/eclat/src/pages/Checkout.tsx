@@ -11,7 +11,7 @@ import { validatePromoCode, calculateDiscount } from '@/lib/promoCode';
 import { getDB, getStorageInstance } from '@/lib/supabase';
 import { collection, query, orderBy, onSnapshot, doc, getDocs, where, limit } from '@/lib/supabaseStore';
 import { ref, uploadBytes, getDownloadURL } from '@/lib/supabaseStorage';
-import { generateOrderId, createOrder, submitPaymentConfirmation, submitRazorpaySuccess, buildUpiLink } from '@/lib/orders';
+import { generateOrderId, createOrder, submitPaymentConfirmation, submitRazorpaySuccess, buildUpiLink, releaseOrderStock, releaseExpiredPaymentPendingOrders } from '@/lib/orders';
 import { loadRazorpayScript } from '@/lib/razorpay';
 import { createRazorpayOrder, verifyRazorpayPayment } from '@/lib/payments';
 import LocationPicker from '@/components/checkout/LocationPicker';
@@ -275,6 +275,7 @@ export default function Checkout() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [showGoBackModal, setShowGoBackModal] = useState(false);
   const hasGuardEntry = useRef(false);
+  const stockReleaseTimers = useRef<Record<string, number>>({});
 
   const discount = promoCode ? calculateDiscount(cartTotal, promoCode) : 0;
   const subtotalAfterDiscount = Math.max(0, cartTotal - discount);
@@ -289,6 +290,30 @@ export default function Checkout() {
   const resolvedUpiId = storeSettings.upiId.trim();
   const resolvedUpiPayeeName = storeSettings.upiPayeeName.trim() || DEFAULT_UPI_PAYEE_NAME;
   const upiLink = resolvedUpiId ? buildUpiLink(resolvedUpiId, resolvedUpiPayeeName, total, 'ODR') : '';
+
+  const clearStockReleaseTimer = useCallback((oid: string) => {
+    const timerId = stockReleaseTimers.current[oid];
+    if (timerId) {
+      window.clearTimeout(timerId);
+      delete stockReleaseTimers.current[oid];
+    }
+  }, []);
+
+  const scheduleStockRelease = useCallback((oid: string) => {
+    clearStockReleaseTimer(oid);
+    stockReleaseTimers.current[oid] = window.setTimeout(() => {
+      void releaseOrderStock(oid).catch(console.error);
+      delete stockReleaseTimers.current[oid];
+    }, 5 * 60 * 1000);
+  }, [clearStockReleaseTimer]);
+
+  useEffect(() => {
+    void releaseExpiredPaymentPendingOrders().catch(console.error);
+    return () => {
+      Object.values(stockReleaseTimers.current).forEach((timerId) => window.clearTimeout(timerId));
+      stockReleaseTimers.current = {};
+    };
+  }, []);
 
   const currentCheckoutDetails = useCallback((): CheckoutDetails => ({
     email: form.email.trim(),
@@ -568,6 +593,7 @@ export default function Checkout() {
       handler: async (response: any) => {
         try {
           await verifyRazorpayPayment({ appOrderId: oid, ...response });
+          clearStockReleaseTimer(oid);
           sessionStorage.setItem('last_order_id', oid);
           if (user) {
             if (discount > 0) await addSavings(user.uid, discount).catch(console.error);
@@ -644,6 +670,7 @@ export default function Checkout() {
         orderStatus: 'Payment Pending',
         orderNote: orderNote.trim() || undefined,
       });
+      scheduleStockRelease(oid);
       if (selectedPaymentMethod === 'razorpay') {
         await handleRazorpay(oid);
       } else {
@@ -657,6 +684,7 @@ export default function Checkout() {
           } catch { /* ignore */ }
         }
         await submitPaymentConfirmation(oid, transactionId.trim(), screenshotUrl);
+        clearStockReleaseTimer(oid);
         sessionStorage.setItem('last_order_id', oid);
         if (user) {
           if (discount > 0) await addSavings(user.uid, discount).catch(console.error);

@@ -194,6 +194,10 @@ export interface Order {
   orderNote?: string;
   deliveryType?: 'Standard' | 'Express';
   orderStatus: OrderStatus;
+  stockReserved?: boolean;
+  stockRestored?: boolean;
+  reservationExpiresAt?: any;
+  stockRestoredAt?: any;
   createdAt?: any;
   updatedAt?: any;
 }

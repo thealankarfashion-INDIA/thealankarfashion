@@ -115,6 +115,12 @@ function App() {
     return () => window.clearTimeout(timerId);
   }, []);
 
+  useEffect(() => {
+    void import("@/lib/orders")
+      .then(({ releaseExpiredPaymentPendingOrders }) => releaseExpiredPaymentPendingOrders())
+      .catch(console.error);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <StoreDataProvider>
