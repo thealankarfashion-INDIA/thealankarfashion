@@ -13,7 +13,7 @@ import { collection, query, orderBy, onSnapshot, doc, getDocs, where, limit } fr
 import { ref, uploadBytes, getDownloadURL } from '@/lib/supabaseStorage';
 import { generateOrderId, createOrder, submitPaymentConfirmation, submitRazorpaySuccess, buildUpiLink, releaseOrderStock, releaseExpiredPaymentPendingOrders } from '@/lib/orders';
 import { loadRazorpayScript } from '@/lib/razorpay';
-import { createRazorpayOrder, verifyRazorpayPayment } from '@/lib/payments';
+import { createRazorpayOrder, createRazorpayPaymentLink, verifyRazorpayPayment, verifyRazorpayPaymentLink } from '@/lib/payments';
 import LocationPicker from '@/components/checkout/LocationPicker';
 import CheckoutSummary from '@/components/checkout/CheckoutSummary';
 import { useAuth } from '@/context/AuthContext';
@@ -30,6 +30,9 @@ const DEFAULT_UPI_ID = import.meta.env.VITE_UPI_ID || "";
 const DEFAULT_UPI_PAYEE_NAME = import.meta.env.VITE_UPI_PAYEE_NAME || "Thealankar";
 const isRazorpayConfigured = true;
 const CHECKOUT_DETAILS_STORAGE_KEY = "thealankar_checkout_details";
+const RAZORPAY_LINK_RETURN_PARAM = "razorpay_link_return";
+const PENDING_RAZORPAY_LINK_KEY = "thealankar_pending_razorpay_link";
+const HOSTED_RAZORPAY_HOSTS = new Set(["thealankarfashion-india.github.io"]);
 
 type CheckoutDetails = {
   email: string;
@@ -54,6 +57,15 @@ const emptyCheckoutDetails: CheckoutDetails = {
 };
 
 const checkoutDetailsKey = (uid?: string) => `${CHECKOUT_DETAILS_STORAGE_KEY}:${uid || "guest"}`;
+const shouldUseHostedRazorpay = () =>
+  typeof window !== "undefined" && HOSTED_RAZORPAY_HOSTS.has(window.location.hostname);
+
+const getRazorpayLinkCallbackUrl = () => {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const url = new URL(`${basePath}/checkout`, window.location.origin);
+  url.searchParams.set(RAZORPAY_LINK_RETURN_PARAM, "1");
+  return url.toString();
+};
 
 const hasCheckoutDetails = (details: CheckoutDetails | null) =>
   Boolean(details?.firstName || details?.lastName || details?.phone || details?.address || details?.city || details?.state || details?.zip);
@@ -387,6 +399,64 @@ export default function Checkout() {
   }, [currentCheckoutDetails, user]);
 
   useEffect(() => {
+    if (authLoading || !user) return;
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(RAZORPAY_LINK_RETURN_PARAM) !== "1") return;
+
+    const payload = {
+      razorpay_payment_id: params.get("razorpay_payment_id") || "",
+      razorpay_payment_link_id: params.get("razorpay_payment_link_id") || "",
+      razorpay_payment_link_reference_id: params.get("razorpay_payment_link_reference_id") || "",
+      razorpay_payment_link_status: params.get("razorpay_payment_link_status") || "",
+      razorpay_signature: params.get("razorpay_signature") || "",
+    };
+
+    if (!Object.values(payload).every(Boolean)) {
+      setError("Payment was not completed. Please retry safely.");
+      return;
+    }
+
+    let cancelled = false;
+    const verifyHostedPayment = async () => {
+      setIsProcessing(true);
+      setError("");
+      try {
+        const result = await verifyRazorpayPaymentLink(payload);
+        if (cancelled) return;
+
+        let pending: { orderId?: string; discount?: number; walletDiscount?: number } = {};
+        try {
+          pending = JSON.parse(sessionStorage.getItem(PENDING_RAZORPAY_LINK_KEY) || "{}");
+        } catch {
+          pending = {};
+        }
+
+        const oid = result.appOrderId || payload.razorpay_payment_link_reference_id;
+        sessionStorage.removeItem(PENDING_RAZORPAY_LINK_KEY);
+        sessionStorage.setItem("last_order_id", oid);
+        if (pending.orderId === oid) {
+          if ((pending.discount || 0) > 0) await addSavings(user.uid, pending.discount || 0).catch(console.error);
+          if ((pending.walletDiscount || 0) > 0) await deductWalletBalance(user.uid, pending.walletDiscount || 0, oid).catch(console.error);
+        }
+        await persistCurrentCheckoutDetails();
+        clearCart();
+        setLocation("/order-confirmation");
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || "Payment verification failed. Please contact support.");
+          setIsProcessing(false);
+        }
+      }
+    };
+
+    void verifyHostedPayment();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, clearCart, persistCurrentCheckoutDetails, setLocation, user]);
+
+  useEffect(() => {
     if (authLoading || user) return;
     const nextPath = `/checkout${window.location.search}`;
     sessionStorage.setItem('thealankar_post_auth_redirect', nextPath);
@@ -628,6 +698,16 @@ export default function Checkout() {
     if (!isRazorpayConfigured) {
       setError('Online payment is not configured yet. Please use UPI payment.');
       setIsProcessing(false);
+      return;
+    }
+    if (shouldUseHostedRazorpay()) {
+      sessionStorage.setItem(PENDING_RAZORPAY_LINK_KEY, JSON.stringify({
+        orderId: oid,
+        discount,
+        walletDiscount,
+      }));
+      const paymentLink = await createRazorpayPaymentLink(oid, getRazorpayLinkCallbackUrl());
+      window.location.assign(paymentLink.shortUrl);
       return;
     }
     const loaded = await loadRazorpayScript();
