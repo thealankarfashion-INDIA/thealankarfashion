@@ -22,6 +22,7 @@ import { ReferralsSection } from "./sections/ReferralsSection";
 import { RatingsSection } from "./sections/RatingsSection";
 import { SupportSection } from "./sections/SupportSection";
 import { ImageIcon, Gift, Share2, MessageSquare, Truck } from "lucide-react";
+import { isPaidOrder } from "@/lib/orderPayment";
 
 type Section = "overview" | "mainBanners" | "products" | "categories" | "videos" | "brands" | "offers" | "coupons" | "announcements" | "orders" | "invoices" | "referrals" | "ratings" | "support" | "settings" | "delivery";
 
@@ -225,7 +226,8 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
   }, []);
 
   const now = new Date();
-  const totalRev = orders.reduce((s, o) => s + (o.total || 0), 0);
+  const paidOrders = orders.filter(isPaidOrder);
+  const totalRev = paidOrders.reduce((s, o) => s + (o.total || 0), 0);
 
   const inMonth = (o: any, offset = 0) => {
     const ts = o.createdAt?.toDate?.() || o.createdAt;
@@ -235,16 +237,16 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
     return d.getMonth() === ref.getMonth() && d.getFullYear() === ref.getFullYear();
   };
 
-  const thisMonth  = orders.filter(o => inMonth(o, 0));
-  const lastMonth  = orders.filter(o => inMonth(o, 1));
+  const thisMonth  = paidOrders.filter(o => inMonth(o, 0));
+  const lastMonth  = paidOrders.filter(o => inMonth(o, 1));
   const thisRev    = thisMonth.reduce((s, o) => s + (o.total || 0), 0);
   const lastRev    = lastMonth.reduce((s, o) => s + (o.total || 0), 0);
   const revGrowth  = lastRev > 0 ? ((thisRev - lastRev) / lastRev * 100) : 0;
-  const ordGrowth  = lastMonth.length > 0 ? ((thisMonth.length - lastMonth.length) / lastMonth.length * 100) : 0;
+  const paidOrdGrowth  = lastMonth.length > 0 ? ((thisMonth.length - lastMonth.length) / lastMonth.length * 100) : 0;
 
   const dayRevenue = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    return orders.filter(o => {
+    return paidOrders.filter(o => {
       const ts = o.createdAt?.toDate?.() || o.createdAt;
       return ts && new Date(ts).toDateString() === d.toDateString();
     }).reduce((s, o) => s + (o.total || 0), 0);
@@ -252,7 +254,7 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
 
   const dayOrders = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    return orders.filter(o => {
+    return paidOrders.filter(o => {
       const ts = o.createdAt?.toDate?.() || o.createdAt;
       return ts && new Date(ts).toDateString() === d.toDateString();
     }).length;
@@ -268,7 +270,7 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
   };
   const actionNeeded = sc.pending + sc.verifying;
 
-  const recentOrders = orders.slice(0, 5).map(o => ({
+  const recentOrders = paidOrders.slice(0, 5).map(o => ({
     id: o.orderId || o.id,
     customer: o.customerName || 'Unknown',
     amount: o.total || 0,
@@ -333,9 +335,9 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
             growth: revGrowth, spark: dayRevenue, icon: DollarSign,
           },
           {
-            label: 'Total Orders', value: orders.length, prefix: '',
+            label: 'Paid Orders', value: paidOrders.length, prefix: '',
             sub: `${thisMonth.length} this month`,
-            growth: ordGrowth, spark: dayOrders, icon: ShoppingCart,
+            growth: paidOrdGrowth, spark: dayOrders, icon: ShoppingCart,
           },
           {
             label: 'Products', value: products, prefix: '',
@@ -453,7 +455,7 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
             {[
               {
                 label: 'Avg Order Value',
-                value: orders.length > 0 ? `₹${Math.round(totalRev / orders.length).toLocaleString()}` : '—',
+                value: paidOrders.length > 0 ? `₹${Math.round(totalRev / paidOrders.length).toLocaleString()}` : '—',
                 sec: 'orders' as Section,
               },
               {
@@ -495,7 +497,7 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
         {/* Recent orders */}
         <motion.div {...su(0.38)} className="lg:col-span-2 bg-white border border-[#E8D8D1] rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-[#E8D8D1]">
-            <h3 className="font-serif text-[15px] text-[#2C1E16]">Recent Orders</h3>
+            <h3 className="font-serif text-[15px] text-[#2C1E16]">Recent Paid Orders</h3>
             <button onClick={() => setSection("orders")} className="text-xs text-[#B47A67] hover:text-[#8E5E4F] transition-colors">
               View all →
             </button>
@@ -503,7 +505,7 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
           {recentOrders.length === 0 ? (
             <div className="py-14 text-center">
               <ShoppingCart className="w-8 h-8 text-[#E8D8D1] mx-auto mb-2" />
-              <p className="text-sm text-[#8E5E4F]/40">No orders yet</p>
+              <p className="text-sm text-[#8E5E4F]/40">No paid orders yet</p>
             </div>
           ) : (
             <div className="divide-y divide-[#F7F1EE]">

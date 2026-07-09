@@ -5,6 +5,7 @@ import { subscribeToOrders } from "@/lib/orders";
 import { deleteDoc, writeBatch, collection, query, getDocs, doc } from "@/lib/supabaseStore";
 import { getDB } from "@/lib/supabase";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
+import { isPaidOrder } from "@/lib/orderPayment";
 import type { Order } from "@/lib/types";
 
 export function InvoicesSection() {
@@ -48,7 +49,7 @@ export function InvoicesSection() {
 
   useEffect(() => {
     try {
-      const unsub = subscribeToOrders((list) => { setOrders(list.filter(o => o.orderStatus === "Verified" || o.orderStatus === "Shipped" || o.orderStatus === "Delivered")); setLoading(false); });
+      const unsub = subscribeToOrders((list) => { setOrders(list.filter(isPaidOrder)); setLoading(false); });
       return () => unsub();
     } catch { setLoading(false); return undefined; }
   }, []);
@@ -80,8 +81,7 @@ export function InvoicesSection() {
         const batch = writeBatch(db);
         // Only delete the orders that would appear in the invoices section
         snap.docs.forEach(d => {
-          const status = d.data().orderStatus;
-          if (status === "Verified" || status === "Shipped" || status === "Delivered") {
+          if (isPaidOrder(d.data() as Order)) {
              batch.delete(d.ref);
           }
         });

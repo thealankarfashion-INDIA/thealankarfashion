@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, CheckCircle2, XCircle, Clock, Eye, X, Truck, Printer, Trash2, Download, MapPin, Phone, Mail } from "lucide-react";
 import { subscribeToOrders, updateOrderStatus } from "@/lib/orders";
 import { printInvoice } from "@/lib/invoice";
+import { hasSubmittedPayment, isPaidOrder } from "@/lib/orderPayment";
 import type { Order, OrderStatus } from "@/lib/types";
 import { deleteDoc, doc, getDocs, writeBatch, collection, query } from "@/lib/supabaseStore";
 import { getDB } from "@/lib/supabase";
@@ -27,7 +28,7 @@ export function OrdersSection() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<string>("payment-submitted");
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [updating, setUpdating] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -44,7 +45,11 @@ export function OrdersSection() {
 
   const filtered = orders.filter(o => {
     const matchSearch = !search || (o.orderId || '').toLowerCase().includes(search.toLowerCase()) || (o.customerName || '').toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === "all" || o.orderStatus === filter;
+    const matchFilter =
+      filter === "all" ||
+      (filter === "payment-submitted" && hasSubmittedPayment(o)) ||
+      (filter === "payment-completed" && isPaidOrder(o)) ||
+      o.orderStatus === filter;
     return matchSearch && matchFilter;
   });
 
@@ -120,7 +125,13 @@ export function OrdersSection() {
         jsPDFCtor = (window as any).jsPDF ?? (window as any).jspdf?.jsPDF ?? (window as any).jspdf ?? jsPDFCtor;
       }
 
-      const filteredOrders = filter === "all" ? orders : orders.filter(o => o.orderStatus === filter);
+      const filteredOrders = filter === "all"
+        ? orders
+        : filter === "payment-submitted"
+          ? orders.filter(hasSubmittedPayment)
+          : filter === "payment-completed"
+            ? orders.filter(isPaidOrder)
+            : orders.filter(o => o.orderStatus === filter);
       const rows = filteredOrders.map(o => {
         const date = o.createdAt?.toDate ? new Date(o.createdAt.toDate()).toLocaleString('en-IN') : '—';
         const items = o.items?.map(i => `${i.name} × ${i.quantity}`).join(', ') || '—';
@@ -253,7 +264,7 @@ export function OrdersSection() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
-        <div><h2 className="font-serif text-2xl text-[#8E5E4F]">Orders</h2><p className="text-xs text-[#8E5E4F]/50 mt-0.5">{orders.length} total orders</p></div>
+        <div><h2 className="font-serif text-2xl text-[#8E5E4F]">Orders</h2><p className="text-xs text-[#8E5E4F]/50 mt-0.5">{orders.filter(hasSubmittedPayment).length} paid/submitted payment orders · {orders.length} total records</p></div>
         <div className="flex flex-col w-full sm:w-auto sm:flex-row gap-2 sm:gap-3">
           {orders.length > 0 && (
             <button onClick={() => setBulkDeleteOpen(true)} className="w-full sm:w-auto justify-center flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors font-medium text-sm border border-red-100"><Trash2 className="w-4 h-4" />Clear All</button>
@@ -265,6 +276,8 @@ export function OrdersSection() {
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8E5E4F]/40" /><input type="text" placeholder="Search orders..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] placeholder-[#8E5E4F]/30 outline-none focus:border-[#B47A67] transition-colors" /></div>
         <select value={filter} onChange={e => setFilter(e.target.value)} className="px-4 py-3 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors">
+          <option value="payment-submitted">Paid / Payment Submitted</option>
+          <option value="payment-completed">Payment Completed Only</option>
           <option value="all">All Statuses</option>
           {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
