@@ -13,7 +13,7 @@ export default function ShopByCategory() {
   const [visibleCount, setVisibleCount] = useState(12);
   const productsRef = useRef<HTMLDivElement>(null);
 
-  const PHOTO = '/images/PHOTO-2026-06-09-22-59-02.jpg';
+  const PHOTO = `${import.meta.env.BASE_URL}images/categories/all-categories.jpeg`;
 
   const derivedCategories = useMemo(() => {
     if (categories && categories.length > 0) {
