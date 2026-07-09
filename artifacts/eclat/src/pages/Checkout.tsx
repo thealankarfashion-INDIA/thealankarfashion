@@ -60,7 +60,7 @@ const hasCheckoutDetails = (details: CheckoutDetails | null) =>
 
 const readSavedCheckoutDetails = (uid?: string): CheckoutDetails | null => {
   try {
-    const raw = localStorage.getItem(checkoutDetailsKey(uid));
+    const raw = localStorage.getItem(checkoutDetailsKey(uid)) || (uid ? localStorage.getItem(checkoutDetailsKey()) : null);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CheckoutDetails>;
     return {
@@ -82,9 +82,26 @@ const readSavedCheckoutDetails = (uid?: string): CheckoutDetails | null => {
 const saveCheckoutDetails = (uid: string | undefined, details: CheckoutDetails) => {
   try {
     localStorage.setItem(checkoutDetailsKey(uid), JSON.stringify(details));
+    localStorage.setItem(checkoutDetailsKey(), JSON.stringify(details));
   } catch {
     // Ignore storage failures; the order flow should continue.
   }
+};
+
+const mergeCheckoutDetails = (...sources: Array<CheckoutDetails | null | undefined>): CheckoutDetails => {
+  return sources.reduce<CheckoutDetails>((merged, source) => {
+    if (!source) return merged;
+    return {
+      email: source.email || merged.email,
+      firstName: source.firstName || merged.firstName,
+      lastName: source.lastName || merged.lastName,
+      phone: source.phone || merged.phone,
+      address: source.address || merged.address,
+      city: source.city || merged.city,
+      state: source.state || merged.state,
+      zip: source.zip || merged.zip,
+    };
+  }, { ...emptyCheckoutDetails });
 };
 
 const checkoutDetailsFromOrder = (order: any): CheckoutDetails => {
@@ -491,24 +508,34 @@ export default function Checkout() {
             || (profile.savedAddresses && profile.savedAddresses.length > 0 ? profile.savedAddresses[0] : undefined);
           const profileAddress = profile.address || defaultAddress;
           let latestOrderDetails: CheckoutDetails | null = null;
-          if (!hasCheckoutDetails(savedDetails) && !profileAddress) {
-            try {
-              const orderSnap = await getDocs(query(
-                collection(getDB(), 'orders'),
-                where('userId', '==', user.uid),
-                orderBy('createdAt', 'desc'),
-                limit(1)
-              ));
-              const latestOrder = orderSnap.docs[0]?.data();
-              latestOrderDetails = latestOrder ? checkoutDetailsFromOrder(latestOrder) : null;
-            } catch (err) {
-              console.error("Failed to load latest checkout details", err);
-            }
+          try {
+            const orderSnap = await getDocs(query(
+              collection(getDB(), 'orders'),
+              where('userId', '==', user.uid),
+              orderBy('createdAt', 'desc'),
+              limit(1)
+            ));
+            const latestOrder = orderSnap.docs[0]?.data();
+            latestOrderDetails = latestOrder ? checkoutDetailsFromOrder(latestOrder) : null;
+          } catch (err) {
+            console.error("Failed to load latest checkout details", err);
           }
           const profileDetails = checkoutDetailsFromProfileAddress(profile, profileAddress);
-          const source = hasCheckoutDetails(savedDetails) ? savedDetails : hasCheckoutDetails(profileDetails) ? profileDetails : latestOrderDetails;
+          const source = mergeCheckoutDetails(
+            latestOrderDetails,
+            profileDetails,
+            {
+              ...emptyCheckoutDetails,
+              email: profile.email || '',
+              firstName: profile.displayName?.split(' ')[0] || '',
+              lastName: profile.displayName?.split(' ').slice(1).join(' ') || '',
+              phone: profile.phoneNumber || '',
+            },
+            savedDetails
+          );
           if (hasCheckoutDetails(source)) {
             setSavedCheckoutDetails(source);
+            saveCheckoutDetails(user.uid, source);
           }
 
           setForm(p => ({
