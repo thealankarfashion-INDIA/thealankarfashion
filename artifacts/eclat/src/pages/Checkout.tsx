@@ -392,9 +392,13 @@ export default function Checkout() {
       const q = query(collection(db, 'offers'), orderBy('order', 'asc'));
       const unsub2 = onSnapshot(q, snap => setAvailableOffers(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((o: any) => o.active && o.code)));
 
-      const qProd = query(collection(db, 'products'), limit(5));
+      const qProd = query(collection(db, 'products'), limit(12));
       const unsub3 = onSnapshot(qProd, snap => {
-        setRelatedProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setRelatedProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((product: any) => {
+          const image = product.images?.[0] || product.image;
+          const hasStock = product.inStock !== false && (product.stockQuantity === undefined || Number(product.stockQuantity) > 0);
+          return Boolean(product.id && product.name && Number(product.price) > 0 && image && hasStock);
+        }));
       });
 
       return () => { unsub1(); unsub2(); unsub3(); };
@@ -416,6 +420,30 @@ export default function Checkout() {
     }
     return best;
   }, [eligibleOffers, cartTotal]);
+
+  const checkoutProductIds = useMemo(() => new Set(items.map(item => item.productId)), [items]);
+  const visibleRelatedProducts = useMemo(
+    () => relatedProducts.filter(product => !checkoutProductIds.has(product.id)).slice(0, 8),
+    [checkoutProductIds, relatedProducts]
+  );
+
+  const addRelatedProductToCart = useCallback((product: any) => {
+    const image = product.images?.[0] || product.image || '';
+    addToCart({
+      productId: product.id,
+      name: product.name,
+      price: Number(product.price) || 0,
+      image,
+      color: '',
+      size: product.sizes?.[0] || 'Single',
+      quantity: 1,
+      rating: product.rating,
+      reviews: product.reviews || product.reviewCount || 0,
+      originalPrice: product.originalPrice,
+      sku: product.sku || '',
+      maxQuantity: product.stockQuantity,
+    });
+  }, [addToCart]);
 
 
 
@@ -1011,12 +1039,13 @@ export default function Checkout() {
               </div>
 
               {/* CROSS-SELL CARD */}
+              {visibleRelatedProducts.length > 0 && (
               <div className="bg-white rounded-[20px] p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-[#E8D8D1]/30 overflow-hidden">
                 <h3 className="font-bold text-[#8E5E4F] text-sm mb-4 flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[#B47A67]" /> Complete your look with
                 </h3>
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-                  {relatedProducts.length > 0 ? relatedProducts.map((product, idx) => (
+                  {visibleRelatedProducts.map((product, idx) => (
                     <div key={product.id} className="group relative">
                       <Link href={`/product/${product.id}`} className={`w-[130px] md:w-[160px] shrink-0 border border-[#E8D8D1]/30 rounded-2xl overflow-hidden ${['bg-[#F2F8FB]', 'bg-[#FDF6E3]', 'bg-[#EAF5F2]', 'bg-[#F9F0F4]'][idx % 4]} block transition-all hover:shadow-md`}>
                         <div className="h-[130px] md:h-[160px] relative overflow-hidden">
@@ -1036,30 +1065,8 @@ export default function Checkout() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setQvProduct(product);
+                          addRelatedProductToCart(product);
                         }}
-                        className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm text-[#B47A67] flex items-center justify-center font-bold hover:bg-[#B47A67] hover:text-white transition-all z-10 border border-[#E8D8D1]/50"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )) : [1, 2, 3, 4].map((i) => (
-                    <div key={i} className="group relative">
-                      <div className={`w-[130px] md:w-[160px] shrink-0 border border-[#E8D8D1]/30 rounded-2xl overflow-hidden ${['bg-[#F2F8FB]', 'bg-[#FDF6E3]', 'bg-[#EAF5F2]', 'bg-[#F9F0F4]'][i % 4]} transition-all hover:shadow-md`}>
-                        <div className="h-[130px] md:h-[160px] relative overflow-hidden">
-                          <img
-                            src={`https://images.unsplash.com/photo-${i === 1 ? '1598532163257-ba458cbca01d' : i === 2 ? '1611591437281-460bfbe1220a' : i === 3 ? '1596462502278-27bfdc403348' : '1523275335684-37898b6baf30'}?auto=format&fit=crop&q=80&w=200`}
-                            alt="Accessory"
-                            className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:scale-110 transition-transform duration-700"
-                          />
-                        </div>
-                        <div className="p-3 bg-white/40 backdrop-blur-sm">
-                          <h4 className="text-[11px] font-bold text-[#8E5E4F] line-clamp-1">{i === 1 ? 'Leather Belt' : i === 2 ? 'Classic Watch' : i === 3 ? 'Sunglasses' : 'Gold Ring'}</h4>
-                          <p className="text-[10px] font-black text-[#B47A67] mt-1">₹{i === 1 ? 899 : i === 2 ? 2499 : i === 3 ? 1299 : 4999}</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
                         className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-sm rounded-lg shadow-sm text-[#B47A67] flex items-center justify-center font-bold hover:bg-[#B47A67] hover:text-white transition-all z-10 border border-[#E8D8D1]/50"
                       >
                         <Plus className="w-4 h-4" />
@@ -1068,6 +1075,7 @@ export default function Checkout() {
                   ))}
                 </div>
               </div>
+              )}
 
               {/* OFFERS CARD */}
               <div className="bg-white rounded-[20px] p-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)] border border-[#E8D8D1]/30">
