@@ -5,6 +5,7 @@ const ALLOWED_CALLBACK_ORIGINS = new Set([
   'https://thealankarfashion-india.github.io',
   'https://thealankar.in',
 ]);
+const RAZORPAY_MIN_LINK_EXPIRY_SECONDS = 16 * 60;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
       reminder_enable: false,
       callback_url: callbackUrl,
       callback_method: 'get',
-      expire_by: Math.floor(Date.now() / 1000) + 5 * 60,
+      expire_by: Math.floor(Date.now() / 1000) + RAZORPAY_MIN_LINK_EXPIRY_SECONDS,
       notes: { app_order_id: appOrderId, user_id: userData.user.id },
     }),
   });
