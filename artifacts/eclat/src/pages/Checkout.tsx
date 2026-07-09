@@ -9,7 +9,7 @@ import AnnouncementBar from '@/components/home/AnnouncementBar';
 
 import { validatePromoCode, calculateDiscount } from '@/lib/promoCode';
 import { getDB, getStorageInstance } from '@/lib/supabase';
-import { collection, query, orderBy, onSnapshot, doc } from '@/lib/supabaseStore';
+import { collection, query, orderBy, onSnapshot, doc, getDocs, where, limit } from '@/lib/supabaseStore';
 import { ref, uploadBytes, getDownloadURL } from '@/lib/supabaseStorage';
 import { generateOrderId, createOrder, submitPaymentConfirmation, submitRazorpaySuccess, buildUpiLink } from '@/lib/orders';
 import { loadRazorpayScript } from '@/lib/razorpay';
@@ -21,7 +21,6 @@ import { useDelivery } from '@/hooks/useDelivery';
 import { getUserProfile, updateUserProfile, addSavings, deductWalletBalance } from '@/lib/user';
 import AddressMapModal from '@/components/profile/AddressMapModal';
 import { QuickView } from '@/components/shop/QuickView';
-import { limit } from '@/lib/supabaseStore';
 import PaymentProgressAnimation from '@/components/payment/PaymentProgressAnimation';
 import AnimatedCross from '@/components/payment/AnimatedCross';
 const cls = "w-full bg-white/60 border border-[#E8D8D1] rounded-sm px-4 py-3 text-sm text-[#8E5E4F] placeholder:text-[#8E5E4F]/30 focus:outline-none focus:border-[#B47A67] transition-colors";
@@ -86,6 +85,38 @@ const saveCheckoutDetails = (uid: string | undefined, details: CheckoutDetails) 
   } catch {
     // Ignore storage failures; the order flow should continue.
   }
+};
+
+const checkoutDetailsFromOrder = (order: any): CheckoutDetails => {
+  const [firstName = "", ...restName] = String(order.customerName || "").trim().split(/\s+/).filter(Boolean);
+  return {
+    email: order.email || "",
+    firstName,
+    lastName: restName.join(" "),
+    phone: order.phone || "",
+    address: order.address || "",
+    city: order.city || "",
+    state: order.state || "",
+    zip: order.pincode || "",
+  };
+};
+
+const checkoutDetailsFromProfileAddress = (profile: any, address: any): CheckoutDetails | null => {
+  if (!address) return null;
+  const nameParts = String(address.name || profile.displayName || "").trim().split(/\s+/).filter(Boolean);
+  const street = String(address.street || "").trim();
+  const fullAddress = String(address.fullAddress || "").trim();
+  const addressLine = street && fullAddress && street !== fullAddress ? `${street}, ${fullAddress}` : street || fullAddress;
+  return {
+    email: profile.email || "",
+    firstName: nameParts[0] || "",
+    lastName: nameParts.slice(1).join(" "),
+    phone: address.phone || profile.phoneNumber || "",
+    address: addressLine,
+    city: address.city || "",
+    state: address.state || "",
+    zip: address.zipCode || "",
+  };
 };
 
 const getGPayLink = (upiLink: string) => {
@@ -280,6 +311,13 @@ export default function Checkout() {
     setAutoFilledDetails(true);
   }, []);
 
+  const rememberCurrentDetailsLocally = useCallback(() => {
+    const details = currentCheckoutDetails();
+    if (!hasCheckoutDetails(details)) return;
+    saveCheckoutDetails(user?.uid, details);
+    setSavedCheckoutDetails(details);
+  }, [currentCheckoutDetails, user?.uid]);
+
   const persistCurrentCheckoutDetails = useCallback(async () => {
     const details = currentCheckoutDetails();
     saveCheckoutDetails(user?.uid, details);
@@ -399,21 +437,40 @@ export default function Checkout() {
           const defaultAddress = profile.savedAddresses?.find(a => a.isDefault)
             || (profile.savedAddresses && profile.savedAddresses.length > 0 ? profile.savedAddresses[0] : undefined);
           const profileAddress = profile.address || defaultAddress;
-          const source = savedDetails;
+          let latestOrderDetails: CheckoutDetails | null = null;
+          if (!hasCheckoutDetails(savedDetails) && !profileAddress) {
+            try {
+              const orderSnap = await getDocs(query(
+                collection(getDB(), 'orders'),
+                where('userId', '==', user.uid),
+                orderBy('createdAt', 'desc'),
+                limit(1)
+              ));
+              const latestOrder = orderSnap.docs[0]?.data();
+              latestOrderDetails = latestOrder ? checkoutDetailsFromOrder(latestOrder) : null;
+            } catch (err) {
+              console.error("Failed to load latest checkout details", err);
+            }
+          }
+          const profileDetails = checkoutDetailsFromProfileAddress(profile, profileAddress);
+          const source = hasCheckoutDetails(savedDetails) ? savedDetails : hasCheckoutDetails(profileDetails) ? profileDetails : latestOrderDetails;
+          if (hasCheckoutDetails(source)) {
+            setSavedCheckoutDetails(source);
+          }
 
           setForm(p => ({
             ...p,
             email: p.email || source?.email || profile.email || '',
-            firstName: p.firstName || source?.firstName || profile.displayName?.split(' ')[0] || profileAddress?.name?.split(' ')[0] || '',
-            lastName: p.lastName || source?.lastName || profile.displayName?.split(' ').slice(1).join(' ') || profileAddress?.name?.split(' ').slice(1).join(' ') || '',
+            firstName: p.firstName || source?.firstName || profile.displayName?.split(' ')[0] || '',
+            lastName: p.lastName || source?.lastName || profile.displayName?.split(' ').slice(1).join(' ') || '',
             phone: p.phone || source?.phone || profile.phoneNumber || profileAddress?.phone || '',
-            address: p.address || source?.address || (profileAddress ? [profileAddress.street, profileAddress.fullAddress].filter(Boolean).join(', ') : ''),
+            address: p.address || source?.address || '',
             city: p.city || source?.city || profileAddress?.city || '',
             state: p.state || source?.state || profileAddress?.state || '',
             zip: p.zip || source?.zip || profileAddress?.zipCode || '',
             saveInfo: p.saveInfo || hasCheckoutDetails(source)
           }));
-          if (hasCheckoutDetails(savedDetails)) setAutoFilledDetails(true);
+          if (hasCheckoutDetails(source)) setAutoFilledDetails(true);
           setWalletBalance(profile.totalSavings || 0);
           setWalletUsagePercent(profile.walletUsagePercent || 50);
         } catch (err) {
@@ -534,6 +591,7 @@ export default function Checkout() {
     if (isBelowMin || items.length === 0) return;
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    rememberCurrentDetailsLocally();
     const selectedPaymentMethod = paymentMethod === 'upi' && !resolvedUpiId ? 'razorpay' : paymentMethod;
     if (selectedPaymentMethod === 'upi') {
       if (!resolvedUpiId) {
