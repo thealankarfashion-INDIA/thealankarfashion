@@ -20,13 +20,15 @@ Deno.serve(async (req) => {
 
   const { data: order, error: orderError } = await supabase
     .from('orders')
-    .select('id,user_id_text,data,total')
+    .select('id,data')
     .eq('id', appOrderId)
     .single();
-  if (orderError || !order) return json({ error: 'Order not found' }, 404);
-  if (order.user_id_text && order.user_id_text !== userData.user.id) return json({ error: 'Forbidden' }, 403);
+  if (orderError || !order) {
+    return json({ error: orderError?.message || 'Order not found' }, 404);
+  }
+  if (order.data?.userId && order.data.userId !== userData.user.id) return json({ error: 'Forbidden' }, 403);
 
-  const amountPaise = Math.round(Number(order.total || order.data?.total || 0) * 100);
+  const amountPaise = Math.round(Number(order.data?.total || 0) * 100);
   if (!Number.isFinite(amountPaise) || amountPaise <= 0) return json({ error: 'Invalid order amount' }, 400);
 
   const keyId = Deno.env.get('RAZORPAY_KEY_ID');
