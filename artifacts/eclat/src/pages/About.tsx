@@ -95,7 +95,7 @@ export default function About() {
     <>
       <SEO
         title="About The Alankar — Our Story, Promise & Craftsmanship Philosophy"
-        description="Discover the story behind The Alankar. We craft premium women's fashion jewellery with quality you can trust, elegance for every occasion, and customer happiness at our core. Powered by Shutdown."
+        description="Discover the story behind The Alankar. We craft premium women's fashion jewellery with quality you can trust, elegance for every occasion, and customer happiness at our core."
         keywords="about the alankar jewellery brand, premium women jewellery brand India, the alankar story, fashion jewellery company, trusted jewellery store"
         url="https://thealankar.in/about"
         schema={aboutSchema}
@@ -340,17 +340,6 @@ export default function About() {
             </section>
           )}
 
-          {/* Our Digital Partner */}
-          <section className="px-4 md:px-0 mt-20 mb-12 max-w-2xl mx-auto text-center">
-            <h3 className="text-[12px] font-bold text-[#8E5E4F]/60 uppercase tracking-[0.15em] mb-4">Our Digital Partner</h3>
-            <p className="text-[14px] md:text-[16px] text-[#2C1E16]/70 leading-relaxed font-light">
-              The Alankar's premium online experience is designed and developed by{' '}
-              <a href="https://gopinathkanniyappan.me/" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#8E5E4F] hover:text-[#B47A67] transition-colors">
-                Shutdown
-              </a>
-              , a boutique digital studio specializing in luxury eCommerce and brand experiences. From seamless product discovery to personalized style recommendations, every interaction is crafted with precision.
-            </p>
-          </section>
         </main>
         <Footer />
       </div>

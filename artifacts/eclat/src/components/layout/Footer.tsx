@@ -63,7 +63,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-background/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-background/50">
-          <p>&copy; {new Date().getFullYear()} The Alankar. All rights reserved. | Designed &amp; Developed by <a href="https://gopinathkanniyappan.me/" target="_blank" rel="noopener noreferrer" className="hover:text-background transition-colors underline underline-offset-4">Shutdown</a></p>
+          <p>&copy; {new Date().getFullYear()} The Alankar. All rights reserved.</p>
           <div className="flex gap-6">
             <Link href="/privacy" className="hover:text-background transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-background transition-colors">Terms of Service</Link>
