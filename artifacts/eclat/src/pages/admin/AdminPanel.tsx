@@ -7,11 +7,13 @@ function isAdminResetLocation() {
   if (typeof window === "undefined") return false;
   const hash = window.location.hash || "";
   const path = window.location.pathname || "";
+  const search = window.location.search || "";
   return (
     hash.startsWith("#/antomanage/reset-password") ||
     hash.includes("reset=1") ||
     hash.includes("type=recovery") ||
-    path.endsWith("/antomanage/reset-password")
+    path.endsWith("/antomanage/reset-password") ||
+    search.includes("admin-reset=1")
   );
 }
 

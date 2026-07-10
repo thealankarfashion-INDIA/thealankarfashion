@@ -5,7 +5,7 @@ import { Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 
 const ADMIN_EMAIL = "thealankar.fashion@gmail.com";
-type AdminResetStep = "email" | "otp" | "password";
+type AdminResetStep = "email" | "link" | "password";
 
 interface AdminLoginProps {
   onLogin: () => void;
@@ -14,7 +14,7 @@ interface AdminLoginProps {
 
 function getAdminResetRedirectUrl() {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return `${window.location.origin}${basePath}/#/antomanage/reset-password`;
+  return `${window.location.origin}${basePath}/?admin-reset=1`;
 }
 
 function getAdminQueryMode() {
@@ -46,7 +46,6 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [authStep, setAuthStep] = useState<'email' | 'password'>('email');
   const [resetMode, setResetMode] = useState(mode === "reset");
   const [resetStep, setResetStep] = useState<AdminResetStep>("email");
-  const [otp, setOtp] = useState("");
   const [recoveryReady, setRecoveryReady] = useState(false);
   const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
   const queryMode = queryParams?.get("reset") === "1" ? "reset" : queryParams?.get("type") === "recovery" ? "recovery" : "";
@@ -104,7 +103,6 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setMessage("Password updated. Please sign in again with your new password.");
     setNewPassword("");
     setConfirmNewPassword("");
-    setOtp("");
     await supabase.auth.signOut();
     setResetMode(false);
     setResetStep("email");
@@ -145,43 +143,8 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
 
     setEmail(loginEmail);
     setResetMode(true);
-    setResetStep("otp");
-    setMessage("OTP sent to your admin email. Enter it here to reset the password.");
-    setLoading(false);
-  };
-
-  const verifyPasswordOtp = async () => {
-    setError("");
-    setMessage("");
-
-    const loginEmail = normalizeEmail(email);
-    const token = otp.trim();
-
-    if (!isAdminEmail(loginEmail)) {
-      setError("This email is not authorized for admin access.");
-      return;
-    }
-    if (!/^\d{6}$/.test(token)) {
-      setError("Enter the 6 digit OTP from your email.");
-      return;
-    }
-
-    setLoading(true);
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email: loginEmail,
-      token,
-      type: "email",
-    });
-
-    if (verifyError) {
-      setError("Invalid or expired OTP. Please request a new OTP.");
-      setLoading(false);
-      return;
-    }
-
-    setRecoveryReady(true);
-    setResetStep("password");
-    setMessage("OTP verified. Set your new admin password.");
+    setResetStep("link");
+    setMessage("Reset email sent. Open the Sign in link in that email, then set your new password here.");
     setLoading(false);
   };
 
@@ -191,12 +154,10 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setMessage("");
 
     if (resetMode) {
-      if (resetStep === "email") {
-        await sendPasswordOtp();
-      } else if (resetStep === "otp") {
-        await verifyPasswordOtp();
-      } else {
+      if (resetStep === "password") {
         await handleResetPassword(e);
+      } else {
+        await sendPasswordOtp();
       }
       return;
     }
@@ -293,35 +254,25 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
                   />
                 </div>
                 <div className="text-[11px] text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
-                  We will send a 6 digit OTP to the registered admin email.
+                  Supabase is currently sending a secure reset link to the registered admin email.
                 </div>
               </>
             )}
 
-            {resetStep === "otp" && (
+            {resetStep === "link" && (
               <>
                 <div className="text-sm text-center text-[#8E5E4F] mb-2 font-medium">
                   {email} <button type="button" onClick={() => setResetStep("email")} className="text-[#B47A67] underline ml-2 text-xs">Edit</button>
                 </div>
-                <div className="w-full relative">
-                  <input
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    required
-                    placeholder="Enter 6 digit OTP"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    autoFocus
-                    className="w-full px-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-center text-xl tracking-[0.4em] text-[#8E5E4F] placeholder:tracking-normal placeholder:text-base placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all"
-                  />
+                <div className="text-xs text-center text-[#8E5E4F]/70 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-4 leading-relaxed">
+                  Open the latest Supabase email and click <strong>Sign in</strong>. After it opens this page again, you can set the new admin password.
                 </div>
                 <button
                   type="button"
                   onClick={sendPasswordOtp}
                   className="w-full text-xs font-semibold tracking-wide text-[#B47A67] hover:text-[#8E5E4F] transition-colors"
                 >
-                  Resend OTP
+                  Resend reset email
                 </button>
               </>
             )}
@@ -430,7 +381,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
           ) : (
             <span className="flex items-center justify-center gap-2">
-              {resetMode ? resetStep === "email" ? "Send OTP" : resetStep === "otp" ? "Verify OTP" : "Update Password" : authStep === 'email' ? 'Continue' : 'Sign In'}
+              {resetMode ? resetStep === "password" ? "Update Password" : resetStep === "link" ? "Resend Reset Email" : "Send Reset Email" : authStep === 'email' ? 'Continue' : 'Sign In'}
               <ChevronRight className="w-5 h-5" />
             </span>
           )}

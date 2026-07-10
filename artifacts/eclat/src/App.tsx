@@ -82,7 +82,8 @@ function App() {
   const isAdminLocation = () => {
     const hash = window.location.hash || "";
     const path = window.location.pathname || "";
-    return hash.startsWith("#/antomanage") || path.endsWith("/antomanage") || path.endsWith("/antomanage/reset-password");
+    const search = window.location.search || "";
+    return hash.startsWith("#/antomanage") || path.endsWith("/antomanage") || path.endsWith("/antomanage/reset-password") || search.includes("admin-reset=1");
   };
 
   const [isAdmin, setIsAdmin] = useState(() => isAdminLocation());
