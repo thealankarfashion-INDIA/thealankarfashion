@@ -14,7 +14,7 @@ interface AdminLoginProps {
 
 function getAdminResetRedirectUrl() {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return `${window.location.origin}${basePath}/admin/reset-password`;
+  return `${window.location.origin}${basePath}/#/antomanage/reset-password`;
 }
 
 function getAdminQueryMode() {

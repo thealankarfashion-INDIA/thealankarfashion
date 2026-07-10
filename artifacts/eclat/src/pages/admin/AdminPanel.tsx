@@ -8,10 +8,10 @@ function isAdminResetLocation() {
   const hash = window.location.hash || "";
   const path = window.location.pathname || "";
   return (
-    hash.startsWith("#/admin/reset-password") ||
+    hash.startsWith("#/antomanage/reset-password") ||
     hash.includes("reset=1") ||
     hash.includes("type=recovery") ||
-    path.endsWith("/admin/reset-password")
+    path.endsWith("/antomanage/reset-password")
   );
 }
 

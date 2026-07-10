@@ -68,8 +68,8 @@ function Router() {
         <Route path="/invite/:code" component={InviteLanding} />
         <Route path="/wallet" component={Wallet} />
         <Route path="/order-confirmation" component={OrderConfirmation} />
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="/admin/reset-password" component={AdminPanel} />
+        <Route path="/antomanage" component={AdminPanel} />
+        <Route path="/antomanage/reset-password" component={AdminPanel} />
         <Route path="/terms" component={TermsOfService} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route component={NotFound} />
@@ -82,7 +82,7 @@ function App() {
   const isAdminLocation = () => {
     const hash = window.location.hash || "";
     const path = window.location.pathname || "";
-    return hash.startsWith("#/admin") || path.endsWith("/admin") || path.endsWith("/admin/reset-password");
+    return hash.startsWith("#/antomanage") || path.endsWith("/antomanage") || path.endsWith("/antomanage/reset-password");
   };
 
   const [isAdmin, setIsAdmin] = useState(() => isAdminLocation());
