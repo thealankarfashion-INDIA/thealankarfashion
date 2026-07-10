@@ -110,33 +110,29 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setLoading(false);
   };
 
-  const sendPasswordOtp = async () => {
+  const sendPasswordResetEmail = async () => {
     setError("");
     setMessage("");
 
     const loginEmail = normalizeEmail(email);
 
     if (!loginEmail) {
-      setError("Enter your admin email first, then we can send the OTP.");
+      setError("Enter your admin email first, then we can send the reset email.");
       return;
     }
 
     if (!isAdminEmail(loginEmail)) {
-      setMessage("If this admin email exists, an OTP has been sent.");
+      setMessage("If this admin email exists, a reset email has been sent.");
       return;
     }
 
     setLoading(true);
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: loginEmail,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: getAdminResetRedirectUrl(),
-      },
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+      redirectTo: getAdminResetRedirectUrl(),
     });
 
-    if (otpError) {
-      setError("Could not send OTP. Please try again.");
+    if (resetError) {
+      setError(resetError.message || "Could not send reset email. Please wait a minute and try again.");
       setLoading(false);
       return;
     }
@@ -157,7 +153,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
       if (resetStep === "password") {
         await handleResetPassword(e);
       } else {
-        await sendPasswordOtp();
+        await sendPasswordResetEmail();
       }
       return;
     }
@@ -269,7 +265,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
                 </div>
                 <button
                   type="button"
-                  onClick={sendPasswordOtp}
+                  onClick={sendPasswordResetEmail}
                   className="w-full text-xs font-semibold tracking-wide text-[#B47A67] hover:text-[#8E5E4F] transition-colors"
                 >
                   Resend reset email
@@ -327,7 +323,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
                 </div>
                 {!recoveryReady && (
                   <div className="text-xs text-center text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
-                    Verify the OTP first so Supabase can allow a password update.
+                    Open the reset email first so Supabase can allow a password update.
                   </div>
                 )}
               </>
@@ -366,11 +362,11 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
             </div>
             <button
               type="button"
-              onClick={sendPasswordOtp}
+              onClick={sendPasswordResetEmail}
               className="w-full text-xs font-semibold tracking-wide text-[#B47A67] hover:text-[#8E5E4F] transition-colors flex items-center justify-center gap-2"
             >
               <Mail className="w-3.5 h-3.5" />
-              Forgot password? Send OTP
+              Forgot password? Send reset email
             </button>
           </div>
         )}
@@ -390,7 +386,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
           <button
             type="button"
             onClick={() => {
-              void sendPasswordOtp();
+              void sendPasswordResetEmail();
             }}
             className="text-xs font-semibold tracking-wide text-[#8E5E4F]/60 hover:text-[#B47A67] transition-colors"
           >
