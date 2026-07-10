@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import { supabase } from "@/lib/supabase";
 
 const ADMIN_EMAIL = "thealankar.fashion@gmail.com";
+type AdminResetStep = "email" | "otp" | "password";
 
 interface AdminLoginProps {
   onLogin: () => void;
@@ -44,6 +45,8 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [loading, setLoading] = useState(false);
   const [authStep, setAuthStep] = useState<'email' | 'password'>('email');
   const [resetMode, setResetMode] = useState(mode === "reset");
+  const [resetStep, setResetStep] = useState<AdminResetStep>("email");
+  const [otp, setOtp] = useState("");
   const [recoveryReady, setRecoveryReady] = useState(false);
   const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
   const queryMode = queryParams?.get("reset") === "1" ? "reset" : queryParams?.get("type") === "recovery" ? "recovery" : "";
@@ -51,6 +54,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   useEffect(() => {
     if (mode === "reset" || queryMode === "reset" || queryMode === "recovery") {
       setResetMode(true);
+      if (queryMode === "recovery") setResetStep("password");
     }
   }, [mode, queryMode]);
 
@@ -66,6 +70,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       setRecoveryReady(!!session);
+      if (session) setResetStep("password");
     });
 
     return () => {
@@ -99,40 +104,84 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setMessage("Password updated. Please sign in again with your new password.");
     setNewPassword("");
     setConfirmNewPassword("");
+    setOtp("");
     await supabase.auth.signOut();
     setResetMode(false);
+    setResetStep("email");
     setAuthStep("email");
     setLoading(false);
   };
 
-  const sendResetEmail = async () => {
+  const sendPasswordOtp = async () => {
     setError("");
     setMessage("");
 
     const loginEmail = normalizeEmail(email);
 
     if (!loginEmail) {
-      setError("Enter your admin email first, then we can send a reset link.");
+      setError("Enter your admin email first, then we can send the OTP.");
       return;
     }
 
     if (!isAdminEmail(loginEmail)) {
-      setMessage("Password reset link has been sent to your email.");
+      setMessage("If this admin email exists, an OTP has been sent.");
       return;
     }
 
     setLoading(true);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(loginEmail, {
-      redirectTo: getAdminResetRedirectUrl(),
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: loginEmail,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: getAdminResetRedirectUrl(),
+      },
     });
 
-    if (resetError) {
-      setError("Could not send reset link. Please try again.");
+    if (otpError) {
+      setError("Could not send OTP. Please try again.");
       setLoading(false);
       return;
     }
 
-    setMessage("Password reset link has been sent to your email.");
+    setEmail(loginEmail);
+    setResetMode(true);
+    setResetStep("otp");
+    setMessage("OTP sent to your admin email. Enter it here to reset the password.");
+    setLoading(false);
+  };
+
+  const verifyPasswordOtp = async () => {
+    setError("");
+    setMessage("");
+
+    const loginEmail = normalizeEmail(email);
+    const token = otp.trim();
+
+    if (!isAdminEmail(loginEmail)) {
+      setError("This email is not authorized for admin access.");
+      return;
+    }
+    if (!/^\d{6}$/.test(token)) {
+      setError("Enter the 6 digit OTP from your email.");
+      return;
+    }
+
+    setLoading(true);
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email: loginEmail,
+      token,
+      type: "email",
+    });
+
+    if (verifyError) {
+      setError("Invalid or expired OTP. Please request a new OTP.");
+      setLoading(false);
+      return;
+    }
+
+    setRecoveryReady(true);
+    setResetStep("password");
+    setMessage("OTP verified. Set your new admin password.");
     setLoading(false);
   };
 
@@ -142,7 +191,13 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setMessage("");
 
     if (resetMode) {
-      await handleResetPassword(e);
+      if (resetStep === "email") {
+        await sendPasswordOtp();
+      } else if (resetStep === "otp") {
+        await verifyPasswordOtp();
+      } else {
+        await handleResetPassword(e);
+      }
       return;
     }
 
@@ -221,56 +276,110 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
       <form onSubmit={handleSubmit} className="space-y-4 flex flex-col items-center w-full">
         {resetMode ? (
           <div className="w-full space-y-3">
-            <div className="w-full relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
-                <Lock className="w-5 h-5 text-[#8E5E4F]/50" />
-              </div>
-              <input
-                type={showNewPassword ? "text" : "password"}
-                required
-                disabled={!recoveryReady}
-                placeholder="New Password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoFocus
-                className="w-full pl-[60px] pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-lg text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all"
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E5E4F]/40 hover:text-[#B47A67] transition-colors"
-              >
-                {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
-                <Lock className="w-5 h-5 text-[#8E5E4F]/50" />
-              </div>
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                required
-                disabled={!recoveryReady}
-                placeholder="Confirm New Password"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                className="w-full pl-[60px] pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all disabled:opacity-60"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E5E4F]/40 hover:text-[#B47A67] transition-colors"
-              >
-                {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-            <div className="text-[11px] text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
-              Password must be at least 8 characters. Both password fields must match.
-            </div>
-            {!recoveryReady && (
-              <div className="text-xs text-center text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
-                Open the password reset email from this device first so Supabase can verify the recovery session.
-              </div>
+            {resetStep === "email" && (
+              <>
+                <div className="w-full relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
+                    <Mail className="w-5 h-5 text-[#8E5E4F]/50" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Enter Admin Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    autoFocus
+                    className="w-full pl-[60px] pr-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-lg text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all"
+                  />
+                </div>
+                <div className="text-[11px] text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
+                  We will send a 6 digit OTP to the registered admin email.
+                </div>
+              </>
+            )}
+
+            {resetStep === "otp" && (
+              <>
+                <div className="text-sm text-center text-[#8E5E4F] mb-2 font-medium">
+                  {email} <button type="button" onClick={() => setResetStep("email")} className="text-[#B47A67] underline ml-2 text-xs">Edit</button>
+                </div>
+                <div className="w-full relative">
+                  <input
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    required
+                    placeholder="Enter 6 digit OTP"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    autoFocus
+                    className="w-full px-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-center text-xl tracking-[0.4em] text-[#8E5E4F] placeholder:tracking-normal placeholder:text-base placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={sendPasswordOtp}
+                  className="w-full text-xs font-semibold tracking-wide text-[#B47A67] hover:text-[#8E5E4F] transition-colors"
+                >
+                  Resend OTP
+                </button>
+              </>
+            )}
+
+            {resetStep === "password" && (
+              <>
+                <div className="w-full relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
+                    <Lock className="w-5 h-5 text-[#8E5E4F]/50" />
+                  </div>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    required
+                    disabled={!recoveryReady}
+                    placeholder="New Password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoFocus
+                    className="w-full pl-[60px] pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-lg text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E5E4F]/40 hover:text-[#B47A67] transition-colors"
+                  >
+                    {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
+                    <Lock className="w-5 h-5 text-[#8E5E4F]/50" />
+                  </div>
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    required
+                    disabled={!recoveryReady}
+                    placeholder="Confirm New Password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    className="w-full pl-[60px] pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E5E4F]/40 hover:text-[#B47A67] transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                <div className="text-[11px] text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
+                  Password must be at least 8 characters. Both password fields must match.
+                </div>
+                {!recoveryReady && (
+                  <div className="text-xs text-center text-[#8E5E4F]/60 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
+                    Verify the OTP first so Supabase can allow a password update.
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : authStep === 'email' ? (
@@ -306,22 +415,22 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
             </div>
             <button
               type="button"
-              onClick={sendResetEmail}
+              onClick={sendPasswordOtp}
               className="w-full text-xs font-semibold tracking-wide text-[#B47A67] hover:text-[#8E5E4F] transition-colors flex items-center justify-center gap-2"
             >
               <Mail className="w-3.5 h-3.5" />
-              Forgot password? Send reset email
+              Forgot password? Send OTP
             </button>
           </div>
         )}
 
-        <button type="submit" disabled={loading || (resetMode && !recoveryReady) || (!resetMode && !email)}
+        <button type="submit" disabled={loading || (resetMode && resetStep === "password" && !recoveryReady) || (!resetMode && !email)}
           className="w-full py-3.5 mt-2 bg-[#B47A67] text-white rounded-xl text-lg font-bold tracking-wide hover:bg-[#8E5E4F] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
           {loading ? (
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
           ) : (
             <span className="flex items-center justify-center gap-2">
-              {resetMode ? 'Update Password' : authStep === 'email' ? 'Continue' : 'Sign In'}
+              {resetMode ? resetStep === "email" ? "Send OTP" : resetStep === "otp" ? "Verify OTP" : "Update Password" : authStep === 'email' ? 'Continue' : 'Sign In'}
               <ChevronRight className="w-5 h-5" />
             </span>
           )}
@@ -330,7 +439,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
           <button
             type="button"
             onClick={() => {
-              void sendResetEmail();
+              void sendPasswordOtp();
             }}
             className="text-xs font-semibold tracking-wide text-[#8E5E4F]/60 hover:text-[#B47A67] transition-colors"
           >
