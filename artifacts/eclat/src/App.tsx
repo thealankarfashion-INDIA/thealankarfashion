@@ -9,7 +9,6 @@ import { WishlistProvider } from "@/context/WishlistContext";
 import { StoreDataProvider } from "@/context/StoreDataContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import BottomNav from "@/components/layout/BottomNav";
-import { warmCommonRoutes } from "@/lib/routePrefetch";
 const AdminPanel = lazy(() => import("@/pages/admin/AdminPanel").then(m => ({ default: m.AdminPanel })));
 
 import Home from "@/pages/Home";
@@ -96,23 +95,6 @@ function App() {
       window.removeEventListener("hashchange", onLocationChange);
       window.removeEventListener("popstate", onLocationChange);
     };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const warmRoutes = () => warmCommonRoutes();
-    const browserWindow = window as Window & typeof globalThis & {
-      requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
-      cancelIdleCallback?: (handle: number) => void;
-    };
-
-    if (browserWindow.requestIdleCallback) {
-      const idleId = browserWindow.requestIdleCallback(warmRoutes, { timeout: 1500 });
-      return () => browserWindow.cancelIdleCallback?.(idleId);
-    }
-
-    const timerId = window.setTimeout(warmRoutes, 1200);
-    return () => window.clearTimeout(timerId);
   }, []);
 
   useEffect(() => {

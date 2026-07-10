@@ -79,11 +79,6 @@ export function prefetchRoute(href: string) {
 export function prefetchLinkProps(href: string) {
   return {
     onMouseEnter: () => prefetchRoute(href),
-    onTouchStart: () => prefetchRoute(href),
+    onFocus: () => prefetchRoute(href),
   };
-}
-
-export function warmCommonRoutes() {
-  const commonRoutes = ["/shop", "/collections", "/profile", "/cart", "/about"];
-  commonRoutes.forEach(prefetchRoute);
 }
