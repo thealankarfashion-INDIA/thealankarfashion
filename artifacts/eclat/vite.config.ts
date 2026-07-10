@@ -21,6 +21,11 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    modulePreload: {
+      resolveDependencies(_url, deps) {
+        return deps.filter((dep) => !dep.includes("admin-pdf") && !dep.includes("AdminPanel"));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
