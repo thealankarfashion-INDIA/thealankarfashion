@@ -32,7 +32,7 @@ const isRazorpayConfigured = true;
 const CHECKOUT_DETAILS_STORAGE_KEY = "thealankar_checkout_details";
 const RAZORPAY_LINK_RETURN_PARAM = "razorpay_link_return";
 const PENDING_RAZORPAY_LINK_KEY = "thealankar_pending_razorpay_link";
-const HOSTED_RAZORPAY_HOSTS = new Set(["thealankarfashion-india.github.io"]);
+const HOSTED_RAZORPAY_HOSTS = new Set(["thealankarfashion-india.github.io", "thealankar.in"]);
 
 type CheckoutDetails = {
   email: string;

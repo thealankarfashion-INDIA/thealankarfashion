@@ -5,7 +5,7 @@ const ALLOWED_CALLBACK_ORIGINS = new Set([
   'https://thealankarfashion-india.github.io',
   'https://thealankar.in',
 ]);
-const RAZORPAY_MIN_LINK_EXPIRY_SECONDS = 16 * 60;
+const RAZORPAY_MIN_LINK_EXPIRY_SECONDS = 60 * 60;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
