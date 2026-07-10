@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useSearch, Link, useLocation } from 'wouter';
 import { motion, AnimatePresence } from 'framer-motion';
-import { SlidersHorizontal, X, Search as SearchIcon, ArrowLeft, ShoppingCart, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, X, Search as SearchIcon, ArrowLeft, ShoppingCart, ChevronDown, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useCart } from '@/context/CartContext';
@@ -42,6 +42,7 @@ export default function Shop() {
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sort, setSort] = useState<SortOption>((params.get('sort') as SortOption) || 'default');
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [desktopFiltersCollapsed, setDesktopFiltersCollapsed] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<'category' | 'brand' | 'price' | 'rating'>('category');
 
   const { items, isCartOpen, setIsCartOpen } = useCart();
@@ -293,20 +294,51 @@ export default function Shop() {
           </div>
 
           {/* Grid Layout — exact Style 4: 5-col, sidebar 1, products 4 */}
-          <div className="md:grid md:grid-cols-5 gap-8 lg:gap-10">
+          <div className={`md:grid gap-8 lg:gap-10 transition-[grid-template-columns] duration-300 ${desktopFiltersCollapsed ? 'md:grid-cols-[56px_minmax(0,1fr)]' : 'md:grid-cols-[280px_minmax(0,1fr)]'}`}>
 
             {/* Desktop Sidebar */}
-            <aside className="hidden md:block md:col-span-1">
-              <div className="sticky top-24 space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-serif text-xl text-[#8E5E4F]">Filters</h3>
+            <aside className="hidden md:block">
+              <div className={`sticky top-24 space-y-6 transition-all duration-300 ${desktopFiltersCollapsed ? 'w-14' : 'w-full'}`}>
+                <div className={`flex items-center ${desktopFiltersCollapsed ? 'justify-center' : 'justify-between'}`}>
+                  {!desktopFiltersCollapsed && <h3 className="font-serif text-xl text-[#8E5E4F]">Filters</h3>}
+                  <button
+                    type="button"
+                    onClick={() => setDesktopFiltersCollapsed(value => !value)}
+                    className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E8D8D1] bg-[#FBF6F3] text-[#8E5E4F] shadow-sm transition-colors hover:border-[#B47A67] hover:text-[#B47A67]"
+                    aria-label={desktopFiltersCollapsed ? 'Expand filters' : 'Minimize filters'}
+                    title={desktopFiltersCollapsed ? 'Expand filters' : 'Minimize filters'}
+                  >
+                    {desktopFiltersCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                    {desktopFiltersCollapsed && activeFiltersCount > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#B47A67] px-1 text-[9px] font-bold text-white">
+                        {activeFiltersCount}
+                      </span>
+                    )}
+                  </button>
                 </div>
-                {FiltersUI}
+                {desktopFiltersCollapsed ? (
+                  <button
+                    type="button"
+                    onClick={() => setDesktopFiltersCollapsed(false)}
+                    className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-[#E8D8D1] bg-white text-[#8E5E4F] shadow-sm transition-colors hover:border-[#B47A67] hover:text-[#B47A67]"
+                    aria-label="Expand filters"
+                    title="Expand filters"
+                  >
+                    <SlidersHorizontal className="h-5 w-5" />
+                    {activeFiltersCount > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#B47A67] px-1 text-[9px] font-bold text-white">
+                        {activeFiltersCount}
+                      </span>
+                    )}
+                  </button>
+                ) : (
+                  FiltersUI
+                )}
               </div>
             </aside>
 
             {/* Product Grid */}
-            <main className="md:col-span-4 px-2 pt-4 md:px-0 md:pt-0">
+            <main className="min-w-0 px-2 pt-4 md:px-0 md:pt-0">
               {loading ? (
                 <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-6">
                   {[...Array(8)].map((_, i) => (
