@@ -1,9 +1,4 @@
-/* TEAM */
-Developer: Shutdown
-Site: shutdown.dev
-Description: Premium digital experience studio
-
 /* SITE */
 Brand: The Alankar
 Standards: HTML5, CSS3, React, TypeScript
-Components: Firebase, Framer Motion
+Components: Supabase, Framer Motion

@@ -1,5 +1,4 @@
 # robots.txt for The Alankar (thealankar.in)
-# Developed by Shutdown — Premium Digital Experiences
 
 User-agent: *
 Allow: /
