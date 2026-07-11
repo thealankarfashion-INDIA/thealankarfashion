@@ -12,8 +12,11 @@ function isAdminResetLocation() {
     hash.startsWith("#/antomanage/reset-password") ||
     hash.includes("reset=1") ||
     hash.includes("type=recovery") ||
+    hash.includes("access_token=") ||
+    hash.includes("refresh_token=") ||
     path.endsWith("/antomanage/reset-password") ||
-    search.includes("admin-reset=1")
+    search.includes("admin-reset=1") ||
+    search.includes("type=recovery")
   );
 }
 

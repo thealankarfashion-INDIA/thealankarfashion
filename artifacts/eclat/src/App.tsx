@@ -83,7 +83,16 @@ function App() {
     const hash = window.location.hash || "";
     const path = window.location.pathname || "";
     const search = window.location.search || "";
-    return hash.startsWith("#/antomanage") || path.endsWith("/antomanage") || path.endsWith("/antomanage/reset-password") || search.includes("admin-reset=1");
+    return (
+      hash.startsWith("#/antomanage") ||
+      hash.includes("type=recovery") ||
+      hash.includes("access_token=") ||
+      hash.includes("refresh_token=") ||
+      path.endsWith("/antomanage") ||
+      path.endsWith("/antomanage/reset-password") ||
+      search.includes("admin-reset=1") ||
+      search.includes("type=recovery")
+    );
   };
 
   const [isAdmin, setIsAdmin] = useState(() => isAdminLocation());

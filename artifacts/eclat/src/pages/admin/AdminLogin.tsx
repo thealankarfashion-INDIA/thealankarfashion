@@ -19,7 +19,14 @@ function getAdminResetRedirectUrl() {
 
 function getAdminQueryMode() {
   const hash = window.location.hash || "";
+  const search = window.location.search || "";
   const queryIndex = hash.indexOf("?");
+  if (hash.includes("type=recovery") || hash.includes("access_token=") || hash.includes("refresh_token=")) {
+    return new URLSearchParams(hash.replace(/^#\/?/, ""));
+  }
+  if (search.includes("admin-reset=1") || search.includes("type=recovery")) {
+    return new URLSearchParams(search.replace(/^\?/, ""));
+  }
   if (queryIndex === -1) return null;
   return new URLSearchParams(hash.slice(queryIndex + 1));
 }
@@ -48,7 +55,12 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [resetStep, setResetStep] = useState<AdminResetStep>("email");
   const [recoveryReady, setRecoveryReady] = useState(false);
   const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
-  const queryMode = queryParams?.get("reset") === "1" ? "reset" : queryParams?.get("type") === "recovery" ? "recovery" : "";
+  const queryMode =
+    queryParams?.get("reset") === "1" || queryParams?.get("admin-reset") === "1"
+      ? "reset"
+      : queryParams?.get("type") === "recovery" || queryParams?.has("access_token")
+        ? "recovery"
+        : "";
 
   useEffect(() => {
     if (mode === "reset" || queryMode === "reset" || queryMode === "recovery") {
