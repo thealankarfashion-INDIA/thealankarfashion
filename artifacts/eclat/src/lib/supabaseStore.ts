@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { APP_RESUME_EVENT, logClientError } from './appLifecycle';
 
 type FilterOp = '==' | '!=';
 type Sentinel =
@@ -267,22 +268,66 @@ function asSnapshot(snapshot: StoreQuerySnapshot | StoreDocSnapshot): StoreSnaps
 
 export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot) => void, error?: (err: unknown) => void) {
   let active = true;
+  let reconnectTimer: number | null = null;
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+
   const load = async () => {
     try {
       const snapshot = (ref as Ref).kind === 'doc' ? await getDoc(ref as Ref) : await getDocs(ref as QueryShape);
       if (active) next(asSnapshot(snapshot));
     } catch (err) {
+      logClientError('supabase-store-load-failed', err, { table: (ref as Ref).table, id: (ref as Ref).id });
       if (active) error?.(err);
     }
   };
+
+  const clearChannel = () => {
+    if (channel) void supabase.removeChannel(channel);
+    channel = null;
+  };
+
+  const scheduleReconnect = () => {
+    if (reconnectTimer) window.clearTimeout(reconnectTimer);
+    reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = null;
+      if (!active) return;
+      void load();
+      subscribe();
+    }, 500);
+  };
+
+  const subscribe = () => {
+    clearChannel();
+    channel = supabase
+      .channel(`store-${(ref as Ref).table}-${(ref as Ref).id || 'all'}-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: (ref as Ref).table }, () => void load())
+      .subscribe((status) => {
+        if (!active) return;
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          logClientError('supabase-store-channel-status', status, { table: (ref as Ref).table, id: (ref as Ref).id });
+          scheduleReconnect();
+        }
+      });
+  };
+
+  const handleResume = () => {
+    void load();
+    scheduleReconnect();
+  };
+
   void load();
-  const channel = supabase
-    .channel(`store-${(ref as Ref).table}-${(ref as Ref).id || 'all'}-${crypto.randomUUID()}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: (ref as Ref).table }, () => void load())
-    .subscribe();
+  subscribe();
+  if (typeof window !== 'undefined') {
+    window.addEventListener(APP_RESUME_EVENT, handleResume);
+  }
+
   return () => {
     active = false;
-    void supabase.removeChannel(channel);
+    if (reconnectTimer) window.clearTimeout(reconnectTimer);
+    if (typeof window !== 'undefined') {
+      window.removeEventListener(APP_RESUME_EVENT, handleResume);
+    }
+    clearChannel();
   };
 }
 

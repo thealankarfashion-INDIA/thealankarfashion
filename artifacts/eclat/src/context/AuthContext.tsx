@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { APP_RESUME_EVENT, logClientError } from '@/lib/appLifecycle';
 import { supabase } from '@/lib/supabase';
 import { addDoc, collection, doc, getDocs, query, serverTimestamp, setDoc, where } from '@/lib/supabaseStore';
 
@@ -86,24 +87,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const syncSession = useCallback(async () => {
+    try {
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      setUser(toAppUser(data.session?.user ?? null));
+    } catch (sessionError) {
+      logClientError('auth-session-sync-failed', sessionError);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      setUser(toAppUser(data.session?.user ?? null));
-      setLoading(false);
-    });
+    const syncIfMounted = () => {
+      if (mounted) void syncSession();
+    };
+
+    void syncSession();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(toAppUser(session?.user ?? null));
       setLoading(false);
     });
 
+    window.addEventListener(APP_RESUME_EVENT, syncIfMounted);
+
     return () => {
       mounted = false;
+      window.removeEventListener(APP_RESUME_EVENT, syncIfMounted);
       subscription.subscription.unsubscribe();
     };
-  }, []);
+  }, [syncSession]);
 
   const signInWithGoogle = useCallback(async () => {
     setError(null);
