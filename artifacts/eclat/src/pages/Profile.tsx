@@ -151,9 +151,21 @@ export default function Profile() {
       // Fetch valid master coupon IDs
       try {
         const masterSnap = await getDocs(collection(db, 'coupons'));
-        const validIds = new Set(masterSnap.docs.map(d => d.id));
-        // Only keep coupons whose parent coupon still exists
-        setUserCoupons(userCouponDocs.filter(c => validIds.has(c.couponId)));
+        const masterCoupons = new Map(masterSnap.docs.map(d => [d.id, { id: d.id, ...d.data() }]));
+        setUserCoupons(
+          userCouponDocs
+            .filter(c => masterCoupons.has(c.couponId))
+            .map(c => {
+              const masterCoupon = masterCoupons.get(c.couponId) as any;
+              return {
+                ...c,
+                couponData: {
+                  ...(c.couponData || {}),
+                  ...masterCoupon,
+                },
+              };
+            })
+        );
       } catch {
         // On error fallback: show all
         setUserCoupons(userCouponDocs);
