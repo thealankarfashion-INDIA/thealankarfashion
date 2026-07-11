@@ -21,6 +21,7 @@ export default function AddressMapModal({ isOpen, onClose, onSave, initialName, 
   const [fullAddress, setFullAddress] = useState('');
   const [street, setStreet] = useState(''); // Flat/House No
   const [city, setCity] = useState('');
+  const [district, setDistrict] = useState('');
   const [state, setState] = useState('');
   const [zipCode, setZipCode] = useState('');
   const [name, setName] = useState(initialName || '');
@@ -87,6 +88,7 @@ export default function AddressMapModal({ isOpen, onClose, onSave, initialName, 
           }
           setFullAddress(fa.trim());
           setCity((locality || administrativeAreaLevel2 || sublocality1 || '').trim());
+          setDistrict((administrativeAreaLevel2 || '').trim());
           setState((administrativeAreaLevel1 || '').trim());
           setZipCode((postalCode || '').trim());
           return;
@@ -101,6 +103,7 @@ export default function AddressMapModal({ isOpen, onClose, onSave, initialName, 
       if (data.address) {
         const addr = data.address;
         const fetchedCity = addr.city || addr.town || addr.municipality || addr.county || addr.village || '';
+        const fetchedDistrict = addr.county || addr.state_district || addr.district || '';
         const fetchedState = addr.state || addr.province || addr.region || '';
         const fetchedZip = addr.postcode || '';
 
@@ -113,6 +116,7 @@ export default function AddressMapModal({ isOpen, onClose, onSave, initialName, 
 
         setFullAddress(parts.join(', ').trim() || data.display_name);
         setCity(fetchedCity.trim());
+        setDistrict(fetchedDistrict.trim());
         setState(fetchedState.trim());
         setZipCode(fetchedZip.trim());
       }
@@ -158,6 +162,7 @@ export default function AddressMapModal({ isOpen, onClose, onSave, initialName, 
       street,
       fullAddress,
       city,
+      district,
       state,
       zipCode,
       country: 'India',
@@ -251,7 +256,7 @@ export default function AddressMapModal({ isOpen, onClose, onSave, initialName, 
                     <MapPin className="w-5 h-5 text-[#B47A67] shrink-0 mt-0.5" />
                     <div>
                       <h4 className="font-medium text-[#8E5E4F] line-clamp-2">{fullAddress || 'Locating...'}</h4>
-                      {city && state && <p className="text-xs text-[#8E5E4F]/60 mt-0.5">{city}, {state}, India</p>}
+                      {city && state && <p className="text-xs text-[#8E5E4F]/60 mt-0.5">{[city, district, state].filter(Boolean).join(', ')}, India</p>}
                     </div>
                   </div>
                 </div>
@@ -263,6 +268,30 @@ export default function AddressMapModal({ isOpen, onClose, onSave, initialName, 
                     value={street}
                     onChange={(e) => setStreet(e.target.value)}
                     placeholder="Address details* (E.g. Floor, House no.)"
+                    className="w-full px-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="City"
+                    className="w-full px-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors"
+                  />
+                  <input
+                    type="text"
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    placeholder="District"
+                    className="w-full px-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors"
+                  />
+                  <input
+                    type="text"
+                    value={zipCode}
+                    onChange={(e) => setZipCode(e.target.value)}
+                    placeholder="PIN Code"
                     className="w-full px-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors"
                   />
                 </div>

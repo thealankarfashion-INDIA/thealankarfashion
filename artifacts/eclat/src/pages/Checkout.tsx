@@ -41,6 +41,7 @@ type CheckoutDetails = {
   phone: string;
   address: string;
   city: string;
+  district: string;
   state: string;
   zip: string;
 };
@@ -52,6 +53,7 @@ const emptyCheckoutDetails: CheckoutDetails = {
   phone: "",
   address: "",
   city: "",
+  district: "",
   state: "",
   zip: "",
 };
@@ -68,7 +70,7 @@ const getRazorpayLinkCallbackUrl = () => {
 };
 
 const hasCheckoutDetails = (details: CheckoutDetails | null) =>
-  Boolean(details?.firstName || details?.lastName || details?.phone || details?.address || details?.city || details?.state || details?.zip);
+  Boolean(details?.firstName || details?.lastName || details?.phone || details?.address || details?.city || details?.district || details?.state || details?.zip);
 
 const readSavedCheckoutDetails = (uid?: string): CheckoutDetails | null => {
   try {
@@ -83,6 +85,7 @@ const readSavedCheckoutDetails = (uid?: string): CheckoutDetails | null => {
       phone: parsed.phone || "",
       address: parsed.address || "",
       city: parsed.city || "",
+      district: parsed.district || "",
       state: parsed.state || "",
       zip: parsed.zip || "",
     };
@@ -110,6 +113,7 @@ const mergeCheckoutDetails = (...sources: Array<CheckoutDetails | null | undefin
       phone: source.phone || merged.phone,
       address: source.address || merged.address,
       city: source.city || merged.city,
+      district: source.district || merged.district,
       state: source.state || merged.state,
       zip: source.zip || merged.zip,
     };
@@ -125,6 +129,7 @@ const checkoutDetailsFromOrder = (order: any): CheckoutDetails => {
     phone: order.phone || "",
     address: order.address || "",
     city: order.city || "",
+    district: order.district || "",
     state: order.state || "",
     zip: order.pincode || "",
   };
@@ -143,6 +148,7 @@ const checkoutDetailsFromProfileAddress = (profile: any, address: any): Checkout
     phone: address.phone || profile.phoneNumber || "",
     address: addressLine,
     city: address.city || "",
+    district: address.district || "",
     state: address.state || "",
     zip: address.zipCode || "",
   };
@@ -266,7 +272,7 @@ export default function Checkout() {
   const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
 
   // Form & Address Modal
-  const [form, setForm] = useState({ email: '', firstName: '', lastName: '', phone: '', address: '', city: '', state: '', zip: '', saveInfo: false });
+  const [form, setForm] = useState({ email: '', firstName: '', lastName: '', phone: '', address: '', city: '', district: '', state: '', zip: '', saveInfo: false });
   const [savedCheckoutDetails, setSavedCheckoutDetails] = useState<CheckoutDetails | null>(null);
   const [autoFilledDetails, setAutoFilledDetails] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -351,9 +357,10 @@ export default function Checkout() {
     phone: form.phone.trim(),
     address: form.address.trim(),
     city: form.city.trim(),
+    district: form.district.trim(),
     state: form.state.trim(),
     zip: form.zip.trim(),
-  }), [form.address, form.city, form.email, form.firstName, form.lastName, form.phone, form.state, form.zip]);
+  }), [form.address, form.city, form.district, form.email, form.firstName, form.lastName, form.phone, form.state, form.zip]);
 
   const applySavedCheckoutDetails = useCallback((details: CheckoutDetails) => {
     setForm(p => ({
@@ -391,6 +398,7 @@ export default function Checkout() {
         street: details.address,
         fullAddress: details.address,
         city: details.city,
+        district: details.district,
         state: details.state,
         zipCode: details.zip,
         country: 'India'
@@ -616,6 +624,7 @@ export default function Checkout() {
             phone: p.phone || source?.phone || profile.phoneNumber || profileAddress?.phone || '',
             address: p.address || source?.address || '',
             city: p.city || source?.city || profileAddress?.city || '',
+            district: p.district || source?.district || profileAddress?.district || '',
             state: p.state || source?.state || profileAddress?.state || '',
             zip: p.zip || source?.zip || profileAddress?.zipCode || '',
             saveInfo: p.saveInfo || hasCheckoutDetails(source)
@@ -689,6 +698,7 @@ export default function Checkout() {
     if (!form.lastName.trim()) e.lastName = 'Required';
     if (!form.address.trim()) e.address = 'Required';
     if (!form.city.trim()) e.city = 'Required';
+    if (!form.district.trim()) e.district = 'Required';
     if (!form.state.trim()) e.state = 'Required';
     if (!form.zip.trim()) e.zip = 'Required';
     return e;
@@ -797,7 +807,7 @@ export default function Checkout() {
         userId: user?.uid || undefined,
         customerName: `${form.firstName} ${form.lastName}`,
         email: form.email, phone: form.phone, address: form.address,
-        city: form.city, state: form.state, pincode: form.zip,
+        city: form.city, district: form.district, state: form.state, pincode: form.zip,
         items: orderItems as any, subtotal: cartTotal, discount: discount + walletDiscount, shipping: deliveryCharge, total,
         promoCode: promoCode?.code || undefined,
         paymentMethod: selectedPaymentMethod === 'upi' ? 'Manual UPI' : 'Razorpay',
@@ -1298,7 +1308,7 @@ export default function Checkout() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-bold text-[#8E5E4F] truncate">{form.address}</h4>
-                    <p className="text-xs text-[#8E5E4F]/60 mt-1 truncate">{form.city}, {form.state} {form.zip}</p>
+                    <p className="text-xs text-[#8E5E4F]/60 mt-1 truncate">{[form.city, form.district, form.state].filter(Boolean).join(', ')} {form.zip}</p>
                   </div>
                   <button type="button" onClick={() => setShowAddressModal(true)} className="shrink-0 text-xs font-bold text-[#B47A67] uppercase tracking-widest hover:underline bg-white py-1 px-2 rounded-md">Change</button>
                 </div>
@@ -1328,9 +1338,10 @@ export default function Checkout() {
                   <h4 className="text-xs font-bold text-[#8E5E4F] uppercase tracking-widest mb-3 opacity-60">Manual Address Details</h4>
                   <div className="space-y-3 opacity-80 focus-within:opacity-100 transition-opacity">
                     <Field label="Full Address / Flat No." value={form.address} onChange={set('address')} placeholder="123 Street Name, Flat No." error={errors.address} required />
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="col-span-1"><Field label="PIN Code" value={form.zip} onChange={set('zip')} placeholder="560001" error={errors.zip} required /></div>
                       <div className="col-span-1"><Field label="City" value={form.city} onChange={set('city')} placeholder="City" error={errors.city} required /></div>
+                      <div className="col-span-1"><Field label="District" value={form.district} onChange={set('district')} placeholder="District" error={errors.district} required /></div>
                       <div className="col-span-1"><Field label="State" value={form.state} onChange={set('state')} placeholder="State" error={errors.state} required /></div>
                     </div>
                   </div>
@@ -1599,6 +1610,7 @@ export default function Checkout() {
             phone: newAddress.phone || p.phone,
             address: newAddress.street ? `${newAddress.street}, ${newAddress.fullAddress}` : newAddress.fullAddress,
             city: newAddress.city || p.city,
+            district: newAddress.district || p.district,
             state: newAddress.state || p.state,
             zip: newAddress.zipCode || p.zip
           }));

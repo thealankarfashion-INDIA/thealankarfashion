@@ -24,6 +24,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 const ALL_STATUSES = ["Payment Pending", "Placed", "Under Verification", "Verified", "Processing", "Shipped", "Delivered", "Rejected", "Cancelled"];
 
+const formatOrderAddress = (order: Order) => {
+  const location = [order.city, order.district, order.state].filter(Boolean).join(", ");
+  return [order.address, location].filter(Boolean).join(", ") + (order.pincode ? ` - ${order.pincode}` : "");
+};
+
 export function OrdersSection() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +145,7 @@ export function OrdersSection() {
           <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;">${date}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;">${o.customerName}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;">${o.phone}</td>
-          <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;">${o.address}, ${o.city}, ${o.state} - ${o.pincode}</td>
+          <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;">${formatOrderAddress(o)}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;">${items}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;text-align:right;">₹${(o.total || 0).toFixed(2)}</td>
           <td style="padding:6px 10px;border:1px solid #ddd;font-size:11px;font-weight:600;">${o.orderStatus}</td>
@@ -337,15 +342,15 @@ export function OrdersSection() {
                 <span className="text-xs text-[#8E5E4F]/40">{viewOrder.paymentMethod}</span>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                {[["Customer", viewOrder.customerName], ["Email", viewOrder.email], ["Phone", viewOrder.phone], ["City", viewOrder.city]].map(([l, v]) => (
+                {[["Customer", viewOrder.customerName], ["Email", viewOrder.email], ["Phone", viewOrder.phone], ["City", viewOrder.city], ["District", viewOrder.district]].map(([l, v]) => (
                   <div key={l}><p className="text-[9px] tracking-widest uppercase text-[#8E5E4F]/40 mb-0.5">{l}</p><p className="text-sm text-[#8E5E4F]">{v || '—'}</p></div>
                 ))}
               </div>
               <div><p className="text-[9px] tracking-widest uppercase text-[#8E5E4F]/40 mb-1">Address</p>
                 <div className="flex items-start justify-between gap-4">
-                  <p className="text-sm text-[#8E5E4F] leading-relaxed">{viewOrder.address}, {viewOrder.city}, {viewOrder.state} - {viewOrder.pincode}</p>
+                  <p className="text-sm text-[#8E5E4F] leading-relaxed">{formatOrderAddress(viewOrder)}</p>
                   <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${viewOrder.address}, ${viewOrder.city}, ${viewOrder.state}, ${viewOrder.pincode}`)}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formatOrderAddress(viewOrder))}`}
                     target="_blank"
                     rel="noreferrer"
                     className="shrink-0 p-2 bg-[#B47A67]/10 text-[#B47A67] rounded-lg hover:bg-[#B47A67] hover:text-white transition-all flex items-center gap-1 text-[10px] font-bold"

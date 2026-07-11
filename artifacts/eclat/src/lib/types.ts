@@ -104,6 +104,7 @@ export interface Address {
   phone: string;
   address: string;
   city: string;
+  district?: string;
   state: string;
   zipCode: string;
 }
@@ -180,6 +181,7 @@ export interface Order {
   phone: string;
   address: string;
   city: string;
+  district?: string;
   state: string;
   pincode: string;
   items: CartItem[];

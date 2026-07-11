@@ -9,6 +9,7 @@ export interface UserAddress {
   street: string; // Used for Flat/House No
   fullAddress: string;
   city: string;
+  district?: string;
   state: string;
   zipCode: string;
   country: string;
