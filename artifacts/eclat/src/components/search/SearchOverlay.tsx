@@ -140,6 +140,18 @@ export default function SearchOverlay({
   // Reset active index on new results
   useEffect(() => { activeIdxRef.current = -1; }, [results]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'contain';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscroll;
+    };
+  }, [isOpen]);
+
   const suggestionResults = results.slice(0, 8);
 
   return (
@@ -153,7 +165,7 @@ export default function SearchOverlay({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/30 backdrop-blur-[2px] z-[200]"
+            className="fixed inset-0 bg-[#F7F1EE] z-[200]"
             onClick={onClose}
           />
 
@@ -165,8 +177,14 @@ export default function SearchOverlay({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="fixed top-0 left-0 right-0 z-[210] bg-white shadow-2xl overflow-hidden"
-            style={{ maxHeight: '85vh', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 }}
+            className="fixed top-0 left-0 right-0 z-[210] bg-white shadow-2xl overflow-hidden isolate"
+            style={{
+              maxHeight: '85vh',
+              borderBottomLeftRadius: 20,
+              borderBottomRightRadius: 20,
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden',
+            }}
           >
             {/* Search Input Row */}
             <div className="flex items-center gap-3 px-4 py-3 border-b border-[#E8D8D1]/60 bg-white sticky top-0">
