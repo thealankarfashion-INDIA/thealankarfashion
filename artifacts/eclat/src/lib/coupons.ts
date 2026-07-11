@@ -13,6 +13,8 @@ type CouponImageFields = Partial<Coupon> & {
 const firstImage = (...values: unknown[]) =>
   values.find((value): value is string => typeof value === 'string' && value.trim().length > 0)?.trim() || '';
 
+export const DEFAULT_COUPON_BANNER_IMAGE = '/profile_banner.png';
+
 export const getCouponBannerImage = (coupon?: CouponImageFields | null) =>
   firstImage(
     coupon?.bannerImage,

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, ArrowRight, X } from 'lucide-react';
 import { UserCoupon, markCouponScratched } from '@/lib/user';
-import { getCouponBannerImage, getCouponIconImage } from '@/lib/coupons';
+import { DEFAULT_COUPON_BANNER_IMAGE, getCouponBannerImage, getCouponIconImage } from '@/lib/coupons';
 
 interface CouponScratchCardProps {
   userCoupon: UserCoupon;
@@ -22,7 +22,7 @@ export default function CouponScratchCard({ userCoupon, userId, onViewDetails, o
   const lastPoint = useRef<{x: number, y: number} | null>(null);
 
   const { couponData } = userCoupon;
-  const bannerImage = getCouponBannerImage(couponData);
+  const bannerImage = getCouponBannerImage(couponData) || DEFAULT_COUPON_BANNER_IMAGE;
   const iconImage = getCouponIconImage(couponData);
   const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
   const [iconLoadFailed, setIconLoadFailed] = useState(false);

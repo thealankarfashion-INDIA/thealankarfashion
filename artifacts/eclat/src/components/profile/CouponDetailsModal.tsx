@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gift, Check } from 'lucide-react';
 import { UserCoupon } from '@/lib/user';
 import { useLocation } from 'wouter';
-import { getCouponBannerImage, getCouponIconImage } from '@/lib/coupons';
+import { DEFAULT_COUPON_BANNER_IMAGE, getCouponBannerImage, getCouponIconImage } from '@/lib/coupons';
 
 interface CouponDetailsModalProps {
   userCoupon: UserCoupon | null;
@@ -18,7 +18,7 @@ export default function CouponDetailsModal({ userCoupon, isOpen, onClose }: Coup
   const [, setLocation] = useLocation();
 
   const couponData = userCoupon?.couponData;
-  const bannerImage = getCouponBannerImage(couponData);
+  const bannerImage = getCouponBannerImage(couponData) || DEFAULT_COUPON_BANNER_IMAGE;
   const iconImage = getCouponIconImage(couponData);
   const showBannerImage = Boolean(bannerImage && !bannerLoadFailed);
   const showIconImage = Boolean(iconImage && !iconLoadFailed);
