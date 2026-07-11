@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, ChevronRight, ArrowLeft, Mail } from "lucide-react";
 import { Link } from "wouter";
-import { clearAdminRecoveryRedirect, hasAdminRecoveryRedirect, supabase } from "@/lib/supabase";
+import {
+  clearAdminRecoveryRedirect,
+  clearAdminRecoveryError,
+  getAdminRecoveryError,
+  hasAdminRecoveryRedirect,
+  supabase,
+} from "@/lib/supabase";
 
 const ADMIN_EMAIL = "thealankar.fashion@gmail.com";
 type AdminResetStep = "email" | "link" | "password";
@@ -55,8 +61,11 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [resetStep, setResetStep] = useState<AdminResetStep>("email");
   const [recoveryReady, setRecoveryReady] = useState(false);
   const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
+  const recoveryError = getAdminRecoveryError();
   const queryMode =
-    hasAdminRecoveryRedirect() || queryParams?.get("type") === "recovery" || queryParams?.has("access_token")
+    recoveryError
+      ? "reset"
+      : hasAdminRecoveryRedirect() || queryParams?.get("type") === "recovery" || queryParams?.has("access_token")
       ? "recovery"
       : queryParams?.get("reset") === "1" || queryParams?.get("admin-reset") === "1"
         ? "reset"
@@ -67,7 +76,12 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
       setResetMode(true);
       if (queryMode === "recovery") setResetStep("password");
     }
-  }, [mode, queryMode]);
+    if (recoveryError) {
+      setEmail(ADMIN_EMAIL);
+      setError(recoveryError);
+      setResetStep("email");
+    }
+  }, [mode, queryMode, recoveryError]);
 
   useEffect(() => {
     if (!resetMode) return;
@@ -151,10 +165,11 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
       return;
     }
 
+    clearAdminRecoveryError();
     setEmail(loginEmail);
     setResetMode(true);
     setResetStep("link");
-    setMessage("Reset email sent. Open the Sign in link in that email, then set your new password here.");
+    setMessage("Reset email sent. Open the Reset password link in that email, then set your new password here.");
     setLoading(false);
   };
 
@@ -275,7 +290,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
                   {email} <button type="button" onClick={() => setResetStep("email")} className="text-[#B47A67] underline ml-2 text-xs">Edit</button>
                 </div>
                 <div className="text-xs text-center text-[#8E5E4F]/70 bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-4 leading-relaxed">
-                  Open the latest Supabase email and click <strong>Sign in</strong>. After it opens this page again, you can set the new admin password.
+                  Open the latest Supabase email and click <strong>Reset password</strong> or <strong>Sign in</strong>. After it opens this page again, you can set the new admin password.
                 </div>
                 <button
                   type="button"
