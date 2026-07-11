@@ -300,7 +300,7 @@ const SubCategoryGrid = () => {
         {/* Horizontal swipeable row with stagger: odd cards higher, even cards lower */}
         <div className="flex gap-3 overflow-x-auto hide-scrollbar items-start pb-4 -mx-4 px-4">
           {items.map((item, i) => (
-            <a
+            <Link
               href={item.link}
               key={i}
               className={`relative flex-none w-[46vw] max-w-[180px] rounded-2xl overflow-hidden block group shadow-sm aspect-[3/4] ${i % 2 === 0 ? 'mt-6' : 'mt-0'}`}
@@ -315,7 +315,7 @@ const SubCategoryGrid = () => {
                   </div>
                 </>
               )}
-            </a>
+            </Link>
           ))}
         </div>
       </div>
@@ -333,7 +333,7 @@ const SubCategoryGrid = () => {
         {/* Cards: alternating up/down stagger */}
         <div className="flex flex-1 gap-4 items-start pb-6">
           {items.map((item, i) => (
-            <a
+            <Link
               href={item.link}
               key={i}
               className={`relative flex-1 rounded-2xl overflow-hidden block group shadow-md hover:shadow-xl transition-all duration-300 aspect-[2/3] ${i % 2 === 0 ? 'mt-6' : 'mt-0'}`}
@@ -348,7 +348,7 @@ const SubCategoryGrid = () => {
                   </div>
                 </>
               )}
-            </a>
+            </Link>
           ))}
         </div>
       </div>
