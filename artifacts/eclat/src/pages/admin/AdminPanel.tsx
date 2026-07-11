@@ -8,8 +8,13 @@ function isAdminResetLocation() {
   const hash = window.location.hash || "";
   const path = window.location.pathname || "";
   const search = window.location.search || "";
-  return (
-    hasAdminRecoveryRedirect() ||
+  const isAdminUrl =
+    hash.startsWith("#/antomanage") ||
+    path.endsWith("/antomanage") ||
+    path.endsWith("/antomanage/reset-password") ||
+    search.includes("admin=antomanage") ||
+    search.includes("admin-reset=1");
+  const isResetUrl =
     hash.startsWith("#/antomanage/reset-password") ||
     hash.includes("reset=1") ||
     hash.includes("type=recovery") ||
@@ -17,7 +22,11 @@ function isAdminResetLocation() {
     hash.includes("refresh_token=") ||
     path.endsWith("/antomanage/reset-password") ||
     search.includes("admin-reset=1") ||
-    search.includes("type=recovery")
+    search.includes("type=recovery");
+
+  return (
+    isResetUrl ||
+    (hasAdminRecoveryRedirect() && isAdminUrl && isResetUrl)
   );
 }
 

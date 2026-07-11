@@ -89,16 +89,21 @@ function App() {
     const hash = window.location.hash || "";
     const path = window.location.pathname || "";
     const search = window.location.search || "";
-    return (
-      hasAdminRecoveryRedirect() ||
+    const isExplicitAdminRoute =
       hash.startsWith("#/antomanage") ||
-      hash.includes("type=recovery") ||
-      hash.includes("access_token=") ||
-      hash.includes("refresh_token=") ||
       path.endsWith("/antomanage") ||
       path.endsWith("/antomanage/reset-password") ||
-      search.includes("admin-reset=1") ||
-      search.includes("type=recovery")
+      search.includes("admin=antomanage") ||
+      search.includes("admin-reset=1");
+
+    return (
+      isExplicitAdminRoute ||
+      (hasAdminRecoveryRedirect() && isExplicitAdminRoute) ||
+      (isExplicitAdminRoute &&
+        (hash.includes("type=recovery") ||
+          hash.includes("access_token=") ||
+          hash.includes("refresh_token=") ||
+          search.includes("type=recovery")))
     );
   };
 

@@ -5,6 +5,26 @@ const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 const ADMIN_RECOVERY_STORAGE_KEY = "thealankar_admin_recovery";
 const ADMIN_RECOVERY_ERROR_STORAGE_KEY = "thealankar_admin_recovery_error";
 
+function getAdminHashUrl(search = "") {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const suffix = search ? `?${search.replace(/^\?/, "")}` : "";
+  return `${window.location.origin}${basePath}/#/antomanage${suffix}`;
+}
+
+function hasAdminRouteIntent() {
+  if (typeof window === "undefined") return false;
+  const hash = window.location.hash || "";
+  const path = window.location.pathname || "";
+  const search = window.location.search || "";
+  return (
+    hash.startsWith("#/antomanage") ||
+    path.endsWith("/antomanage") ||
+    path.endsWith("/antomanage/reset-password") ||
+    search.includes("admin=antomanage") ||
+    search.includes("admin-reset=1")
+  );
+}
+
 function captureAdminRecoveryRedirect() {
   if (typeof window === "undefined") return;
   const hash = window.location.hash || "";
@@ -22,15 +42,25 @@ function captureAdminRecoveryRedirect() {
     search.includes("admin-reset=1") ||
     search.includes("type=recovery");
 
-  if (isRecoveryRedirect) {
+  if (isRecoveryRedirect && hasAdminRouteIntent()) {
     window.sessionStorage.setItem(ADMIN_RECOVERY_STORAGE_KEY, "1");
   }
 
-  if (hasExpiredLinkError) {
+  if (hasExpiredLinkError && hasAdminRouteIntent()) {
     window.sessionStorage.setItem(
       ADMIN_RECOVERY_ERROR_STORAGE_KEY,
       "This reset link is invalid or expired. Send a fresh reset email and open the newest email only."
     );
+  }
+
+  if (
+    search.includes("admin-reset=1") &&
+    !hash.startsWith("#/antomanage") &&
+    !hash.includes("access_token=") &&
+    !hash.includes("refresh_token=") &&
+    !hash.includes("type=recovery")
+  ) {
+    window.history.replaceState(null, "", getAdminHashUrl(search));
   }
 }
 

@@ -23,6 +23,14 @@ function getAdminResetRedirectUrl() {
   return `${window.location.origin}${basePath}/?admin-reset=1&admin=antomanage`;
 }
 
+function normalizeToAdminResetRoute() {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const adminResetUrl = `${window.location.origin}${basePath}/#/antomanage?admin-reset=1&admin=antomanage`;
+  if (!window.location.hash.startsWith("#/antomanage")) {
+    window.history.replaceState(null, "", adminResetUrl);
+  }
+}
+
 function getAdminQueryMode() {
   const hash = window.location.hash || "";
   const search = window.location.search || "";
@@ -90,13 +98,19 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       setRecoveryReady(!!data.session);
-      if (data.session && hasAdminRecoveryRedirect()) setResetStep("password");
+      if (data.session && hasAdminRecoveryRedirect()) {
+        normalizeToAdminResetRoute();
+        setResetStep("password");
+      }
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       setRecoveryReady(!!session);
-      if (session) setResetStep("password");
+      if (session) {
+        if (hasAdminRecoveryRedirect()) normalizeToAdminResetRoute();
+        setResetStep("password");
+      }
     });
 
     return () => {
