@@ -12,6 +12,9 @@ function isAdminResetLocation() {
     hash.startsWith("#/antomanage") ||
     path.endsWith("/antomanage") ||
     path.endsWith("/antomanage/reset-password") ||
+    path.endsWith("/admin/login") ||
+    path.endsWith("/admin/forgot-password") ||
+    path.endsWith("/admin/reset-password") ||
     search.includes("admin=antomanage") ||
     search.includes("admin-reset=1");
   const isResetUrl =
@@ -21,6 +24,8 @@ function isAdminResetLocation() {
     hash.includes("access_token=") ||
     hash.includes("refresh_token=") ||
     path.endsWith("/antomanage/reset-password") ||
+    path.endsWith("/admin/forgot-password") ||
+    path.endsWith("/admin/reset-password") ||
     search.includes("admin-reset=1") ||
     search.includes("type=recovery");
 

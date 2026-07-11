@@ -19,20 +19,21 @@ interface AdminLoginProps {
 }
 
 function getAdminResetRedirectUrl() {
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return `${window.location.origin}${basePath}/?admin-reset=1&admin=antomanage`;
+  return `${window.location.origin}/admin/reset-password`;
 }
 
 function normalizeToAdminResetRoute() {
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const adminResetUrl = `${window.location.origin}${basePath}/#/antomanage?admin-reset=1&admin=antomanage`;
-  if (!window.location.hash.startsWith("#/antomanage")) {
+  const adminResetUrl = `${window.location.origin}/admin/reset-password`;
+  const currentUrl = `${window.location.origin}${window.location.pathname}`;
+  if (currentUrl !== adminResetUrl || window.location.search || window.location.hash) {
     window.history.replaceState(null, "", adminResetUrl);
+    window.dispatchEvent(new PopStateEvent("popstate"));
   }
 }
 
 function getAdminQueryMode() {
   const hash = window.location.hash || "";
+  const path = window.location.pathname || "";
   const search = window.location.search || "";
   const queryIndex = hash.indexOf("?");
   if (hash.includes("type=recovery") || hash.includes("access_token=") || hash.includes("refresh_token=")) {
@@ -40,6 +41,9 @@ function getAdminQueryMode() {
   }
   if (search.includes("admin-reset=1") || search.includes("type=recovery")) {
     return new URLSearchParams(search.replace(/^\?/, ""));
+  }
+  if (path.endsWith("/admin/reset-password") || path.endsWith("/admin/forgot-password")) {
+    return new URLSearchParams("admin-reset=1");
   }
   if (queryIndex === -1) return null;
   return new URLSearchParams(hash.slice(queryIndex + 1));
@@ -64,6 +68,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [authStep, setAuthStep] = useState<'email' | 'password'>('email');
   const [resetMode, setResetMode] = useState(mode === "reset");
   const [resetStep, setResetStep] = useState<AdminResetStep>("email");
@@ -95,21 +100,74 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     if (!resetMode) return;
 
     let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      setRecoveryReady(!!data.session);
-      if (data.session && hasAdminRecoveryRedirect()) {
-        normalizeToAdminResetRoute();
-        setResetStep("password");
-      }
-    });
 
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const rejectRecoverySession = async (messageText: string) => {
+      await supabase.auth.signOut();
       if (!active) return;
-      setRecoveryReady(!!session);
-      if (session) {
-        if (hasAdminRecoveryRedirect()) normalizeToAdminResetRoute();
-        setResetStep("password");
+      clearAdminRecoveryRedirect();
+      setRecoveryReady(false);
+      setResetStep("email");
+      setError(messageText);
+    };
+
+    const authorizeRecoverySession = async (session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"]) => {
+      if (!session) {
+        if (active) setRecoveryReady(false);
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !isAdminEmail(userData.user?.email || "")) {
+        await rejectRecoverySession("This reset link is not for the registered admin account.");
+        return;
+      }
+
+      const { data: isAdmin, error: roleError } = await supabase.rpc("is_admin");
+      if (roleError || isAdmin !== true) {
+        await rejectRecoverySession("This account is not authorized for admin access.");
+        return;
+      }
+
+      if (!active) return;
+      clearAdminRecoveryError();
+      setEmail(normalizeEmail(userData.user?.email || ADMIN_EMAIL));
+      setRecoveryReady(true);
+      setResetStep("password");
+      setError("");
+      normalizeToAdminResetRoute();
+    };
+
+    const prepareRecovery = async () => {
+      setAuthLoading(true);
+      const code = new URLSearchParams(window.location.search).get("code");
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          if (!active) return;
+          clearAdminRecoveryRedirect();
+          setRecoveryReady(false);
+          setResetStep("email");
+          setError("This reset link is invalid or expired. Send a fresh reset email and open the newest email only.");
+          setAuthLoading(false);
+          normalizeToAdminResetRoute();
+          return;
+        }
+      }
+
+      const { data } = await supabase.auth.getSession();
+      await authorizeRecoverySession(data.session);
+      if (active) setAuthLoading(false);
+    };
+
+    void prepareRecovery();
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!active) return;
+      if (event === "PASSWORD_RECOVERY" || (session && hasAdminRecoveryRedirect())) {
+        setAuthLoading(true);
+        void authorizeRecoverySession(session).finally(() => {
+          if (active) setAuthLoading(false);
+        });
       }
     });
 
@@ -150,6 +208,8 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setResetStep("email");
     setAuthStep("email");
     setLoading(false);
+    window.history.replaceState(null, "", `${window.location.origin}/admin/login`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
   const sendPasswordResetEmail = async () => {
@@ -276,6 +336,11 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
       <form onSubmit={handleSubmit} className="space-y-4 flex flex-col items-center w-full">
         {resetMode ? (
           <div className="w-full space-y-3">
+            {authLoading && (
+              <div className="text-xs text-center text-[#8E5E4F] bg-[#FBF6F3] border border-[#E8D8D1] rounded-xl p-3">
+                Preparing secure reset session...
+              </div>
+            )}
             {resetStep === "email" && (
               <>
                 <div className="w-full relative">
@@ -414,9 +479,9 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
           </div>
         )}
 
-        <button type="submit" disabled={loading || (resetMode && resetStep === "password" && !recoveryReady) || (!resetMode && !email)}
+        <button type="submit" disabled={loading || authLoading || (resetMode && resetStep === "password" && !recoveryReady) || (!resetMode && !email)}
           className="w-full py-3.5 mt-2 bg-[#B47A67] text-white rounded-xl text-lg font-bold tracking-wide hover:bg-[#8E5E4F] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-          {loading ? (
+          {loading || authLoading ? (
             <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
           ) : (
             <span className="flex items-center justify-center gap-2">

@@ -74,6 +74,9 @@ function Router() {
         <Route path="/order-confirmation" component={OrderConfirmation} />
         <Route path="/antomanage" component={AdminPanel} />
         <Route path="/antomanage/reset-password" component={AdminPanel} />
+        <Route path="/admin/login" component={AdminPanel} />
+        <Route path="/admin/forgot-password" component={AdminPanel} />
+        <Route path="/admin/reset-password" component={AdminPanel} />
         <Route path="/terms" component={TermsOfService} />
         <Route path="/privacy" component={PrivacyPolicy} />
         <Route component={NotFound} />
@@ -93,6 +96,9 @@ function App() {
       hash.startsWith("#/antomanage") ||
       path.endsWith("/antomanage") ||
       path.endsWith("/antomanage/reset-password") ||
+      path.endsWith("/admin/login") ||
+      path.endsWith("/admin/forgot-password") ||
+      path.endsWith("/admin/reset-password") ||
       search.includes("admin=antomanage") ||
       search.includes("admin-reset=1");
 
