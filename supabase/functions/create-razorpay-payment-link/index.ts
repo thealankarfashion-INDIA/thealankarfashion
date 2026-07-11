@@ -54,10 +54,8 @@ Deno.serve(async (req) => {
 
   const customerName = String(order.data?.customerName || 'The Alankar Customer').trim();
   const email = String(order.data?.email || '').trim();
-  const contact = String(order.data?.phone || '').replace(/\D/g, '');
   const customer: Record<string, string> = { name: customerName };
   if (email) customer.email = email;
-  if (contact.length >= 10) customer.contact = contact.slice(-10);
 
   const basic = btoa(`${keyId}:${keySecret}`);
   const response = await fetch('https://api.razorpay.com/v1/payment_links', {

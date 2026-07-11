@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link, useLocation } from 'wouter';
 import SEO from '@/components/seo/SEO';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, ShieldCheck, CreditCard, Smartphone, AlertTriangle, CheckCircle2, ChevronRight, ArrowLeft, Sparkles, Plus, Paperclip, Package, Share2, Navigation, Ticket, MapPin, Wallet, Truck, Zap } from 'lucide-react';
+import { Lock, ShieldCheck, CreditCard, Smartphone, AlertTriangle, CheckCircle2, ChevronRight, ArrowLeft, Sparkles, Plus, Paperclip, Package, Share2, Navigation, Ticket, MapPin, Wallet, Truck, Zap, Loader2, XCircle, RefreshCw } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import Navbar from '@/components/layout/Navbar';
 import AnnouncementBar from '@/components/home/AnnouncementBar';
@@ -45,6 +45,8 @@ type CheckoutDetails = {
   state: string;
   zip: string;
 };
+
+type PaymentScreenStatus = 'idle' | 'processing' | 'redirecting' | 'verifying' | 'success' | 'failed' | 'cancelled';
 
 const emptyCheckoutDetails: CheckoutDetails = {
   email: "",
@@ -244,6 +246,94 @@ const SimpleConfetti = () => {
   return <canvas ref={canvasRef} className="fixed inset-0 z-[1000] pointer-events-none" />;
 };
 
+function RazorpayStatusScreen({
+  status,
+  amount,
+  orderId,
+  message,
+  onRetry,
+  onBackToCheckout,
+}: {
+  status: Exclude<PaymentScreenStatus, 'idle'>;
+  amount: number;
+  orderId?: string;
+  message?: string;
+  onRetry: () => void;
+  onBackToCheckout: () => void;
+}) {
+  const isLoading = status === 'processing' || status === 'redirecting' || status === 'verifying';
+  const isSuccess = status === 'success';
+  const isCancelled = status === 'cancelled';
+  const Icon = isLoading ? Loader2 : isSuccess ? CheckCircle2 : isCancelled ? XCircle : AlertTriangle;
+  const tone = isSuccess ? 'text-green-600' : isCancelled ? 'text-[#B47A67]' : isLoading ? 'text-[#B47A67]' : 'text-red-600';
+  const ring = isSuccess ? 'bg-green-50 border-green-100' : isCancelled ? 'bg-[#FBF6F3] border-[#E8D8D1]' : isLoading ? 'bg-[#FBF6F3] border-[#E8D8D1]' : 'bg-red-50 border-red-100';
+  const title =
+    status === 'processing' ? 'Preparing secure payment' :
+    status === 'redirecting' ? 'Redirecting to Razorpay' :
+    status === 'verifying' ? 'Verifying your payment' :
+    status === 'success' ? 'Payment successful' :
+    status === 'cancelled' ? 'Payment cancelled' :
+    'Payment failed';
+  const body = message ||
+    (status === 'processing' ? 'Please wait while we create your secure Razorpay session.' :
+    status === 'redirecting' ? 'You will be taken to Razorpay in a moment. Please do not refresh this page.' :
+    status === 'verifying' ? 'We are confirming the payment with Razorpay. This usually takes a few seconds.' :
+    status === 'success' ? 'Your order is confirmed. Opening your order confirmation now.' :
+    status === 'cancelled' ? 'No payment was captured. You can safely retry from checkout.' :
+    'No payment was captured. Please retry or choose another payment option.');
+
+  return (
+    <div className="fixed inset-0 z-[220] bg-[#F7F1EE] flex items-center justify-center px-4">
+      <SEO title="Payment Status" noindex />
+      <motion.div
+        initial={{ opacity: 0, y: 18, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        className="w-full max-w-md rounded-[24px] border border-[#E8D8D1] bg-white p-7 text-center shadow-[0_18px_60px_rgba(142,94,79,0.16)]"
+      >
+        <div className={`mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border ${ring}`}>
+          <Icon className={`h-10 w-10 ${tone} ${isLoading ? 'animate-spin' : ''}`} />
+        </div>
+        <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#B47A67]">Razorpay Secure Checkout</p>
+        <h1 className="mt-3 font-serif text-3xl text-[#8E5E4F]">{title}</h1>
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-[#8E5E4F]/65">{body}</p>
+
+        <div className="mt-6 rounded-2xl border border-[#E8D8D1]/70 bg-[#FBF6F3] px-4 py-3 text-left">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E5E4F]/50">Amount</span>
+            <span className="text-lg font-black text-[#8E5E4F]">Rs. {amount.toFixed(2)}</span>
+          </div>
+          {orderId && (
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#8E5E4F]/50">Order</span>
+              <span className="truncate text-xs font-bold text-[#8E5E4F]">{orderId}</span>
+            </div>
+          )}
+        </div>
+
+        {!isLoading && !isSuccess && (
+          <div className="mt-6 grid grid-cols-1 gap-3">
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#B47A67] px-4 py-3 text-sm font-black uppercase tracking-widest text-white shadow-lg shadow-[#B47A67]/20 transition-colors hover:bg-[#8E5E4F]"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry Payment
+            </button>
+            <button
+              type="button"
+              onClick={onBackToCheckout}
+              className="rounded-xl border border-[#E8D8D1] bg-white px-4 py-3 text-xs font-bold uppercase tracking-widest text-[#8E5E4F] transition-colors hover:border-[#B47A67]"
+            >
+              Back to Checkout
+            </button>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 
 
 
@@ -292,19 +382,10 @@ export default function Checkout() {
   // Status
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+  const [paymentScreen, setPaymentScreen] = useState<PaymentScreenStatus>('idle');
+  const [paymentScreenMessage, setPaymentScreenMessage] = useState('');
   const [step, setStep] = useState<'form' | 'success' | 'failed'>('form');
-  const [failurePhase, setFailurePhase] = useState<'idle' | 'progress' | 'cross'>('idle');
-
-  const triggerFailureAnimation = () => {
-    setFailurePhase('progress');
-    setTimeout(() => {
-      setFailurePhase('cross');
-      setTimeout(() => {
-        setFailurePhase('idle');
-        setStep('failed');
-      }, 3000);
-    }, 2500);
-  };
+  const [failurePhase] = useState<'idle' | 'progress' | 'cross'>('idle');
   const [orderId, setOrderId] = useState('');
   const [qvProduct, setQvProduct] = useState<any>(null);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -341,6 +422,22 @@ export default function Checkout() {
       delete stockReleaseTimers.current[oid];
     }, 5 * 60 * 1000);
   }, [clearStockReleaseTimer]);
+
+  const showPaymentScreen = useCallback((status: PaymentScreenStatus, message = '') => {
+    setPaymentScreen(status);
+    setPaymentScreenMessage(message);
+  }, []);
+
+  const returnToCheckout = useCallback(() => {
+    setPaymentScreen('idle');
+    setPaymentScreenMessage('');
+    setError('');
+    setIsProcessing(false);
+  }, []);
+
+  const goToConfirmationSoon = useCallback(() => {
+    window.setTimeout(() => setLocation('/order-confirmation'), 1200);
+  }, [setLocation]);
 
   useEffect(() => {
     void releaseExpiredPaymentPendingOrders().catch(console.error);
@@ -412,6 +509,13 @@ export default function Checkout() {
     const params = new URLSearchParams(window.location.search);
     if (params.get(RAZORPAY_LINK_RETURN_PARAM) !== "1") return;
 
+    let pending: { orderId?: string; discount?: number; walletDiscount?: number } = {};
+    try {
+      pending = JSON.parse(sessionStorage.getItem(PENDING_RAZORPAY_LINK_KEY) || "{}");
+    } catch {
+      pending = {};
+    }
+
     const payload = {
       razorpay_payment_id: params.get("razorpay_payment_id") || "",
       razorpay_payment_link_id: params.get("razorpay_payment_link_id") || "",
@@ -421,38 +525,42 @@ export default function Checkout() {
     };
 
     if (!Object.values(payload).every(Boolean)) {
-      setError("Payment was not completed. Please retry safely.");
+      if (pending.orderId) void releaseOrderStock(pending.orderId).catch(console.error);
+      setOrderId(pending.orderId || "");
+      showPaymentScreen('cancelled', 'Payment was cancelled or not completed. No payment was captured. You can retry safely.');
+      setIsProcessing(false);
       return;
     }
 
     let cancelled = false;
     const verifyHostedPayment = async () => {
       setIsProcessing(true);
+      setOrderId(payload.razorpay_payment_link_reference_id);
+      showPaymentScreen('verifying');
       setError("");
       try {
         const result = await verifyRazorpayPaymentLink(payload);
         if (cancelled) return;
 
-        let pending: { orderId?: string; discount?: number; walletDiscount?: number } = {};
-        try {
-          pending = JSON.parse(sessionStorage.getItem(PENDING_RAZORPAY_LINK_KEY) || "{}");
-        } catch {
-          pending = {};
-        }
-
         const oid = result.appOrderId || payload.razorpay_payment_link_reference_id;
         sessionStorage.removeItem(PENDING_RAZORPAY_LINK_KEY);
         sessionStorage.setItem("last_order_id", oid);
+        clearStockReleaseTimer(oid);
         if (pending.orderId === oid) {
           if ((pending.discount || 0) > 0) await addSavings(user.uid, pending.discount || 0).catch(console.error);
           if ((pending.walletDiscount || 0) > 0) await deductWalletBalance(user.uid, pending.walletDiscount || 0, oid).catch(console.error);
         }
         await persistCurrentCheckoutDetails();
         clearCart();
-        setLocation("/order-confirmation");
+        setOrderId(oid);
+        showPaymentScreen('success');
+        goToConfirmationSoon();
       } catch (err: any) {
         if (!cancelled) {
-          setError(err.message || "Payment verification failed. Please contact support.");
+          const message = err.message || "Payment verification failed. Please contact support.";
+          if (pending.orderId) void releaseOrderStock(pending.orderId).catch(console.error);
+          setError(message);
+          showPaymentScreen('failed', message);
           setIsProcessing(false);
         }
       }
@@ -462,7 +570,7 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, clearCart, persistCurrentCheckoutDetails, setLocation, user]);
+  }, [authLoading, clearCart, clearStockReleaseTimer, goToConfirmationSoon, persistCurrentCheckoutDetails, showPaymentScreen, user]);
 
   useEffect(() => {
     if (authLoading || user) return;
@@ -705,11 +813,15 @@ export default function Checkout() {
   };
 
   const handleRazorpay = async (oid: string) => {
+    setOrderId(oid);
     if (!isRazorpayConfigured) {
-      setError('Online payment is not configured yet. Please use UPI payment.');
+      const message = 'Online payment is not configured yet. Please use UPI payment.';
+      setError(message);
+      showPaymentScreen('failed', message);
       setIsProcessing(false);
       return;
     }
+    showPaymentScreen('processing');
     if (shouldUseHostedRazorpay()) {
       sessionStorage.setItem(PENDING_RAZORPAY_LINK_KEY, JSON.stringify({
         orderId: oid,
@@ -717,15 +829,25 @@ export default function Checkout() {
         walletDiscount,
       }));
       const paymentLink = await createRazorpayPaymentLink(oid, getRazorpayLinkCallbackUrl());
+      showPaymentScreen('redirecting');
+      await new Promise(resolve => window.setTimeout(resolve, 500));
       window.location.assign(paymentLink.shortUrl);
       return;
     }
     const loaded = await loadRazorpayScript();
-    if (!loaded) { setError('Failed to load payment gateway.'); setIsProcessing(false); return; }
+    if (!loaded) {
+      const message = 'Failed to load payment gateway. Please check your connection and retry.';
+      setError(message);
+      showPaymentScreen('failed', message);
+      setIsProcessing(false);
+      return;
+    }
     const paymentOrder = await createRazorpayOrder(oid);
     const razorpayKey = RAZORPAY_KEY_ID || paymentOrder.keyId;
     if (!razorpayKey) {
-      setError('Razorpay key is missing. Please add the public Razorpay Key ID before accepting online payment.');
+      const message = 'Razorpay key is missing. Please add the public Razorpay Key ID before accepting online payment.';
+      setError(message);
+      showPaymentScreen('failed', message);
       setIsProcessing(false);
       return;
     }
@@ -736,6 +858,7 @@ export default function Checkout() {
       order_id: paymentOrder.razorpayOrderId,
       name: 'Thealankar', description: `Order ${oid}`,
       handler: async (response: any) => {
+        showPaymentScreen('verifying');
         try {
           await verifyRazorpayPayment({ appOrderId: oid, ...response });
           clearStockReleaseTimer(oid);
@@ -745,15 +868,39 @@ export default function Checkout() {
             if (walletDiscount > 0) await deductWalletBalance(user.uid, walletDiscount, oid).catch(console.error);
             await persistCurrentCheckoutDetails();
           }
-          setOrderId(oid); clearCart(); setLocation('/order-confirmation');
-        } catch (err: any) { setError(err.message || 'Payment verification failed. Please try again or contact support.'); setIsProcessing(false); }
+          setOrderId(oid);
+          clearCart();
+          showPaymentScreen('success');
+          goToConfirmationSoon();
+        } catch (err: any) {
+          const message = err.message || 'Payment verification failed. Please try again or contact support.';
+          setError(message);
+          showPaymentScreen('failed', message);
+          setIsProcessing(false);
+        }
       },
-      prefill: { name: `${form.firstName} ${form.lastName}`, email: form.email, contact: form.phone },
+      prefill: { name: `${form.firstName} ${form.lastName}`, email: form.email },
+      hidden: { contact: true },
       theme: { color: '#B47A67' },
-      modal: { ondismiss: () => { setError('Payment cancelled. You can retry safely.'); setIsProcessing(false); } }
+      modal: {
+        ondismiss: () => {
+          const message = 'Payment cancelled. No payment was captured. You can retry safely.';
+          void releaseOrderStock(oid).catch(console.error);
+          setError(message);
+          showPaymentScreen('cancelled', message);
+          setIsProcessing(false);
+        }
+      }
     };
     const rzp = new (window as any).Razorpay(options);
-    rzp.on('payment.failed', (r: any) => { setError(r.error.description || 'Payment failed. Please retry.'); rzp.close(); setIsProcessing(false); });
+    rzp.on('payment.failed', (r: any) => {
+      const message = r.error.description || 'Payment failed. Please retry.';
+      void releaseOrderStock(oid).catch(console.error);
+      setError(message);
+      showPaymentScreen('failed', message);
+      rzp.close();
+      setIsProcessing(false);
+    });
     rzp.open();
   };
 
@@ -785,6 +932,7 @@ export default function Checkout() {
       }
     }
     setIsProcessing(true); setError('');
+    if (selectedPaymentMethod === 'razorpay') showPaymentScreen('processing');
     try {
       const oid = generateOrderId();
       const orderItems = items.map(i => ({ id: i.productId, name: i.name, price: i.price, image: i.image || '', sku: i.sku || '', size: i.size || 'Single', color: i.color || '', quantity: i.quantity }));
@@ -838,8 +986,32 @@ export default function Checkout() {
         }
         setOrderId(oid); clearCart(); setLocation('/order-confirmation');
       }
-    } catch (err: any) { setError(err.message || 'Failed to start payment. Please retry.'); setIsProcessing(false); }
+    } catch (err: any) {
+      const message = err.message || 'Failed to start payment. Please retry.';
+      setError(message);
+      if (selectedPaymentMethod === 'razorpay') showPaymentScreen('failed', message);
+      setIsProcessing(false);
+    }
   };
+
+  if (paymentScreen !== 'idle') {
+    return (
+      <RazorpayStatusScreen
+        status={paymentScreen}
+        amount={total}
+        orderId={orderId}
+        message={paymentScreenMessage || error}
+        onRetry={() => {
+          setPaymentScreen('idle');
+          setPaymentScreenMessage('');
+          setError('');
+          setIsProcessing(false);
+          paymentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+        onBackToCheckout={returnToCheckout}
+      />
+    );
+  }
 
   if (failurePhase === 'progress') {
     return <PaymentProgressAnimation amount={total} status="error" />;
