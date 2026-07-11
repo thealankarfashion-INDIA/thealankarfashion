@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { APP_RESUME_EVENT, logClientError } from '@/lib/appLifecycle';
-import { supabase } from '@/lib/supabase';
+import { hasAdminRecoveryRedirect, supabase } from '@/lib/supabase';
 import { addDoc, collection, doc, getDocs, query, serverTimestamp, setDoc, where } from '@/lib/supabaseStore';
 
 export type AppUser = SupabaseUser & {
@@ -79,6 +79,21 @@ async function upsertUserDoc(user: AppUser) {
   );
 }
 
+function isAdminPasswordRecoveryRoute() {
+  if (typeof window === 'undefined') return false;
+  const cleanPath = window.location.pathname.replace(/\/+$/, '') || '/';
+  const search = window.location.search || '';
+  const hash = window.location.hash || '';
+  return (
+    cleanPath === '/admin/reset-password' ||
+    hasAdminRecoveryRedirect() ||
+    search.includes('type=recovery') ||
+    hash.includes('type=recovery') ||
+    hash.includes('access_token=') ||
+    hash.includes('refresh_token=')
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,6 +123,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void syncSession();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (import.meta.env.DEV) {
+        console.log('Supabase auth event:', _event);
+      }
+      if (_event === 'PASSWORD_RECOVERY' || isAdminPasswordRecoveryRoute()) {
+        setUser(toAppUser(session?.user ?? null));
+        setLoading(false);
+        return;
+      }
       setUser(toAppUser(session?.user ?? null));
       setLoading(false);
     });

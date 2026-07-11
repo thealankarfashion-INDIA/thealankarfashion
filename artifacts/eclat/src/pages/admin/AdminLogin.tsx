@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, ChevronRight, ArrowLeft, Mail } from "lucide-react";
 import { Link } from "wouter";
@@ -7,6 +7,7 @@ import {
   clearAdminRecoveryError,
   getAdminRecoveryError,
   hasAdminRecoveryRedirect,
+  markAdminRecoveryRequested,
   supabase,
 } from "@/lib/supabase";
 
@@ -22,6 +23,11 @@ function getAdminResetRedirectUrl() {
   return `${window.location.origin}/admin/reset-password`;
 }
 
+function getCleanPathname(pathname = "") {
+  const cleanPath = pathname.replace(/\/+$/, "");
+  return cleanPath || "/";
+}
+
 function normalizeToAdminResetRoute() {
   const adminResetUrl = `${window.location.origin}/admin/reset-password`;
   const currentUrl = `${window.location.origin}${window.location.pathname}`;
@@ -33,7 +39,7 @@ function normalizeToAdminResetRoute() {
 
 function getAdminQueryMode() {
   const hash = window.location.hash || "";
-  const path = window.location.pathname || "";
+  const path = getCleanPathname(window.location.pathname || "");
   const search = window.location.search || "";
   const queryIndex = hash.indexOf("?");
   if (hash.includes("type=recovery") || hash.includes("access_token=") || hash.includes("refresh_token=")) {
@@ -42,7 +48,7 @@ function getAdminQueryMode() {
   if (search.includes("admin-reset=1") || search.includes("type=recovery")) {
     return new URLSearchParams(search.replace(/^\?/, ""));
   }
-  if (path.endsWith("/admin/reset-password") || path.endsWith("/admin/forgot-password")) {
+  if (path === "/admin/reset-password" || path === "/admin/forgot-password") {
     return new URLSearchParams("admin-reset=1");
   }
   if (queryIndex === -1) return null;
@@ -73,6 +79,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [resetMode, setResetMode] = useState(mode === "reset");
   const [resetStep, setResetStep] = useState<AdminResetStep>("email");
   const [recoveryReady, setRecoveryReady] = useState(false);
+  const recoveryProcessedRef = useRef(false);
   const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
   const recoveryError = getAdminRecoveryError();
   const queryMode =
@@ -138,11 +145,17 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     };
 
     const prepareRecovery = async () => {
+      if (recoveryProcessedRef.current) return;
+      recoveryProcessedRef.current = true;
       setAuthLoading(true);
       const code = new URLSearchParams(window.location.search).get("code");
+      if (import.meta.env.DEV) {
+        console.log("Recovery pathname:", window.location.pathname);
+        console.log("Recovery code present:", Boolean(code));
+      }
       if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-        if (exchangeError) {
+        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError || !exchangeData.session) {
           if (!active) return;
           clearAdminRecoveryRedirect();
           setRecoveryReady(false);
@@ -163,6 +176,10 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
+      if (import.meta.env.DEV) {
+        console.log("Admin recovery auth event:", event);
+        console.log("Recovery session ready:", Boolean(session));
+      }
       if (event === "PASSWORD_RECOVERY" || (session && hasAdminRecoveryRedirect())) {
         setAuthLoading(true);
         void authorizeRecoverySession(session).finally(() => {
@@ -188,6 +205,10 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     }
     if (newPassword !== confirmNewPassword) {
       setError("The new passwords do not match.");
+      return;
+    }
+    if (!recoveryReady) {
+      setError("The password recovery session is not ready. Open the newest reset email first.");
       return;
     }
 
@@ -229,8 +250,12 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     }
 
     setLoading(true);
+    const redirectTo = getAdminResetRedirectUrl();
+    if (import.meta.env.DEV) {
+      console.log("Admin reset redirect URL:", redirectTo);
+    }
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(loginEmail, {
-      redirectTo: getAdminResetRedirectUrl(),
+      redirectTo,
     });
 
     if (resetError) {
@@ -240,6 +265,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     }
 
     clearAdminRecoveryError();
+    markAdminRecoveryRequested();
     setEmail(loginEmail);
     setResetMode(true);
     setResetStep("link");

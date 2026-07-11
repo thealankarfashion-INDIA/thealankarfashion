@@ -46,6 +46,11 @@ const PageLoader = () => (
   </div>
 );
 
+function getCleanPathname(pathname = "") {
+  const cleanPath = pathname.replace(/\/+$/, "");
+  return cleanPath || "/";
+}
+
 function Router() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -73,7 +78,6 @@ function Router() {
         <Route path="/wallet" component={Wallet} />
         <Route path="/order-confirmation" component={OrderConfirmation} />
         <Route path="/antomanage" component={AdminPanel} />
-        <Route path="/antomanage/reset-password" component={AdminPanel} />
         <Route path="/admin/login" component={AdminPanel} />
         <Route path="/admin/forgot-password" component={AdminPanel} />
         <Route path="/admin/reset-password" component={AdminPanel} />
@@ -90,15 +94,14 @@ function App() {
 
   const isAdminLocation = () => {
     const hash = window.location.hash || "";
-    const path = window.location.pathname || "";
+    const path = getCleanPathname(window.location.pathname || "");
     const search = window.location.search || "";
     const isExplicitAdminRoute =
       hash.startsWith("#/antomanage") ||
-      path.endsWith("/antomanage") ||
-      path.endsWith("/antomanage/reset-password") ||
-      path.endsWith("/admin/login") ||
-      path.endsWith("/admin/forgot-password") ||
-      path.endsWith("/admin/reset-password") ||
+      path === "/antomanage" ||
+      path === "/admin/login" ||
+      path === "/admin/forgot-password" ||
+      path === "/admin/reset-password" ||
       search.includes("admin=antomanage") ||
       search.includes("admin-reset=1");
 

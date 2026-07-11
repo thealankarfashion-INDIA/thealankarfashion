@@ -1,14 +1,42 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import fs from "fs";
 
 const port = Number(process.env.PORT) || 5173;
 const basePath = process.env.BASE_PATH || "/";
+
+function spaRouteCopies() {
+  return {
+    name: "thealankar-spa-route-copies",
+    apply: "build" as const,
+    closeBundle() {
+      const distDir = path.resolve(import.meta.dirname, "dist");
+      const indexPath = path.join(distDir, "index.html");
+      if (!fs.existsSync(indexPath)) return;
+
+      const html = fs.readFileSync(indexPath, "utf8");
+      const routes = [
+        "404.html",
+        "admin/login/index.html",
+        "admin/forgot-password/index.html",
+        "admin/reset-password/index.html",
+      ];
+
+      for (const route of routes) {
+        const target = path.join(distDir, route);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, html);
+      }
+    },
+  };
+}
 
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
+    spaRouteCopies(),
   ],
   resolve: {
     alias: {

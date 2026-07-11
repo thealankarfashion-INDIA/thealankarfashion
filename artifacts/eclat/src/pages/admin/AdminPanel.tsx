@@ -3,29 +3,31 @@ import { AdminLogin } from "./AdminLogin";
 import { AdminDashboard } from "./AdminDashboard";
 import { hasAdminRecoveryRedirect, supabase } from "@/lib/supabase";
 
+function getCleanPathname(pathname = "") {
+  const cleanPath = pathname.replace(/\/+$/, "");
+  return cleanPath || "/";
+}
+
 function isAdminResetLocation() {
   if (typeof window === "undefined") return false;
   const hash = window.location.hash || "";
-  const path = window.location.pathname || "";
+  const path = getCleanPathname(window.location.pathname || "");
   const search = window.location.search || "";
   const isAdminUrl =
     hash.startsWith("#/antomanage") ||
-    path.endsWith("/antomanage") ||
-    path.endsWith("/antomanage/reset-password") ||
-    path.endsWith("/admin/login") ||
-    path.endsWith("/admin/forgot-password") ||
-    path.endsWith("/admin/reset-password") ||
+    path === "/antomanage" ||
+    path === "/admin/login" ||
+    path === "/admin/forgot-password" ||
+    path === "/admin/reset-password" ||
     search.includes("admin=antomanage") ||
     search.includes("admin-reset=1");
   const isResetUrl =
-    hash.startsWith("#/antomanage/reset-password") ||
     hash.includes("reset=1") ||
     hash.includes("type=recovery") ||
     hash.includes("access_token=") ||
     hash.includes("refresh_token=") ||
-    path.endsWith("/antomanage/reset-password") ||
-    path.endsWith("/admin/forgot-password") ||
-    path.endsWith("/admin/reset-password") ||
+    path === "/admin/forgot-password" ||
+    path === "/admin/reset-password" ||
     search.includes("admin-reset=1") ||
     search.includes("type=recovery");
 
