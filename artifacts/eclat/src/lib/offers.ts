@@ -13,6 +13,8 @@ type OfferImageFields = Partial<Offer> & {
 const firstImage = (...values: unknown[]) =>
   values.find((value): value is string => typeof value === 'string' && value.trim().length > 0)?.trim() || '';
 
+export const DEFAULT_OFFER_BANNER_IMAGE = '/profile_banner.png';
+
 export const getOfferImage = (offer?: OfferImageFields | null) =>
   firstImage(
     offer?.image,
@@ -24,3 +26,6 @@ export const getOfferImage = (offer?: OfferImageFields | null) =>
     offer?.banner,
     offer?.desktopImage
   );
+
+export const getOfferBannerImage = (offer?: OfferImageFields | null) =>
+  getOfferImage(offer) || DEFAULT_OFFER_BANNER_IMAGE;

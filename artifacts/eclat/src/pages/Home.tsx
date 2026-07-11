@@ -19,7 +19,7 @@ import Footer from '@/components/layout/Footer';
 import { HomePageSkeleton } from '@/components/ui/SkeletonLoaders';
 import FAQSection from '@/components/home/FAQSection';
 import SearchBar from '@/components/search/SearchBar';
-import { getOfferImage } from '@/lib/offers';
+import { DEFAULT_OFFER_BANNER_IMAGE, getOfferBannerImage } from '@/lib/offers';
 
 // Lazy-load framer-motion heavy components not needed on initial paint
 const CartDrawer = lazy(() => import('@/components/layout/CartDrawer'));
@@ -237,37 +237,40 @@ const HeroBanner = () => {
     <div className="px-3 pt-4 max-w-md md:max-w-7xl mx-auto bg-white">
       <div className="relative rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow border border-[#E8D8D1]/50" ref={emblaRef}>
         <div className="flex">
-          {displayOffers.map((offer) => (
-            <Link href={offer.link || "/shop"} key={offer.id} className="flex-none w-full relative aspect-[16/9] md:aspect-[21/9] lg:aspect-[24/9] bg-gradient-to-r from-[#F7F1EE] to-[#E8D8D1] flex items-center cursor-pointer">
-              <div className="w-1/2 md:w-1/3 pl-5 md:pl-16 z-20">
-                {offer.badge && (
-                  <div className="bg-gradient-to-r from-[#D4AF37] to-[#B47A67] text-white text-[9px] md:text-xs tracking-wider font-bold px-2 md:px-4 py-0.5 md:py-1 rounded shadow-sm inline-flex items-center gap-1 mb-2 md:mb-4 uppercase">
-                    <Sparkles className="w-2.5 h-2.5 md:w-4 md:h-4" /> {offer.badge}
+          {displayOffers.map((offer) => {
+            const offerImage = getOfferBannerImage(offer);
+
+            return (
+              <Link href={offer.link || "/shop"} key={offer.id} className="flex-none w-full relative aspect-[16/9] md:aspect-[21/9] lg:aspect-[24/9] bg-gradient-to-r from-[#F7F1EE] to-[#E8D8D1] flex items-center cursor-pointer">
+                <div className="w-1/2 md:w-1/3 pl-5 md:pl-16 z-20">
+                  {offer.badge && (
+                    <div className="bg-gradient-to-r from-[#D4AF37] to-[#B47A67] text-white text-[9px] md:text-xs tracking-wider font-bold px-2 md:px-4 py-0.5 md:py-1 rounded shadow-sm inline-flex items-center gap-1 mb-2 md:mb-4 uppercase">
+                      <Sparkles className="w-2.5 h-2.5 md:w-4 md:h-4" /> {offer.badge}
+                    </div>
+                  )}
+                  <div className="bg-white px-2 py-1 md:px-4 md:py-2 rounded inline-block shadow-sm mb-2 md:mb-4 border border-[#E8D8D1]">
+                    <span className="font-serif italic font-bold text-[#8E5E4F] text-xs md:text-sm">Thealankar</span>
                   </div>
-                )}
-                <div className="bg-white px-2 py-1 md:px-4 md:py-2 rounded inline-block shadow-sm mb-2 md:mb-4 border border-[#E8D8D1]">
-                  <span className="font-serif italic font-bold text-[#8E5E4F] text-xs md:text-sm">Thealankar</span>
+                  <h2 className="text-sm sm:text-base md:text-3xl font-medium text-[#8E5E4F] leading-tight mb-1 md:mb-3 line-clamp-2">{offer.title}</h2>
+                  {offer.subtitle && <div className="text-lg sm:text-2xl md:text-5xl font-black text-[#8E5E4F] tracking-tight">{offer.subtitle}</div>}
                 </div>
-                <h2 className="text-sm sm:text-base md:text-3xl font-medium text-[#8E5E4F] leading-tight mb-1 md:mb-3 line-clamp-2">{offer.title}</h2>
-                {offer.subtitle && <div className="text-lg sm:text-2xl md:text-5xl font-black text-[#8E5E4F] tracking-tight">{offer.subtitle}</div>}
-              </div>
-              <div className="absolute right-0 top-0 bottom-0 w-[55%] md:w-[65%]">
-                {loading && <div className="absolute inset-0 bg-[#E8D8D1]/50 animate-pulse" />}
-                {getOfferImage(offer) ? (
+                <div className="absolute right-0 top-0 bottom-0 w-[55%] md:w-[65%]">
+                  {loading && <div className="absolute inset-0 bg-[#E8D8D1]/50 animate-pulse" />}
                   <img
-                    src={getOfferImage(offer)}
+                    src={offerImage}
                     alt={offer.title}
                     loading="lazy"
                     decoding="async"
                     className="w-full h-full object-cover object-top"
                     style={{ maskImage: 'linear-gradient(to right, transparent, black 40%)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 40%)' }}
+                    onError={(event) => {
+                      event.currentTarget.src = DEFAULT_OFFER_BANNER_IMAGE;
+                    }}
                   />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[#E8D8D1] via-[#F7F1EE] to-[#B47A67]/30" />
-                )}
-              </div>
-            </Link>
-          ))}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
