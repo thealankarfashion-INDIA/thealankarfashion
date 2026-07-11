@@ -19,6 +19,7 @@ import Footer from '@/components/layout/Footer';
 import { HomePageSkeleton } from '@/components/ui/SkeletonLoaders';
 import FAQSection from '@/components/home/FAQSection';
 import SearchBar from '@/components/search/SearchBar';
+import { getOfferImage } from '@/lib/offers';
 
 // Lazy-load framer-motion heavy components not needed on initial paint
 const CartDrawer = lazy(() => import('@/components/layout/CartDrawer'));
@@ -252,14 +253,18 @@ const HeroBanner = () => {
               </div>
               <div className="absolute right-0 top-0 bottom-0 w-[55%] md:w-[65%]">
                 {loading && <div className="absolute inset-0 bg-[#E8D8D1]/50 animate-pulse" />}
-                <img
-                  src={offer.image}
-                  alt={offer.title}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-full object-cover object-top"
-                  style={{ maskImage: 'linear-gradient(to right, transparent, black 40%)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 40%)' }}
-                />
+                {getOfferImage(offer) ? (
+                  <img
+                    src={getOfferImage(offer)}
+                    alt={offer.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover object-top"
+                    style={{ maskImage: 'linear-gradient(to right, transparent, black 40%)', WebkitMaskImage: 'linear-gradient(to right, transparent, black 40%)' }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#E8D8D1] via-[#F7F1EE] to-[#B47A67]/30" />
+                )}
               </div>
             </Link>
           ))}

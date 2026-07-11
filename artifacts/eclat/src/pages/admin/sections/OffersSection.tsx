@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, X, Check, Tag, Upload, Image as ImageIcon } from "
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch, query } from "@/lib/supabaseStore";
 import { getDB } from "@/lib/supabase";
 import useStoreOffers from "@/hooks/useStoreOffers";
+import { getOfferImage } from "@/lib/offers";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
 
 async function resizeImage(file: File, maxWidth = 800, quality = 0.72): Promise<string> {
@@ -41,7 +42,7 @@ export function OffersSection() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const openAdd = () => { setForm({ title: "", subtitle: "", code: "", discount: 0, type: "percentage", minOrderAmount: 0, badge: "", order: 0, active: true, image: "", cta: "" }); setEditId(null); setModalOpen(true); };
-  const openEdit = (o: any) => { setForm({ title: o.title || "", subtitle: o.subtitle || "", code: o.code || "", discount: o.discount || 0, type: o.type || "percentage", minOrderAmount: o.minOrderAmount || 0, badge: o.badge || "", order: o.order || 0, active: o.active !== false, image: o.image || "", cta: o.cta || "" }); setEditId(o.id); setModalOpen(true); };
+  const openEdit = (o: any) => { setForm({ title: o.title || "", subtitle: o.subtitle || "", code: o.code || "", discount: o.discount || 0, type: o.type || "percentage", minOrderAmount: o.minOrderAmount || 0, badge: o.badge || "", order: o.order || 0, active: o.active !== false, image: getOfferImage(o), cta: o.cta || "" }); setEditId(o.id); setModalOpen(true); };
 
   const save = async () => {
     if (!form.title) return; setSaving(true);
@@ -87,7 +88,7 @@ export function OffersSection() {
         {offers.map((offer: any, i: number) => (
           <motion.div key={offer.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ delay: i * 0.05 }} className={`bg-white border border-[#E8D8D1] rounded-2xl p-5 flex items-center gap-5 ${!offer.active ? 'opacity-50' : ''}`}>
             <div className="h-12 w-12 rounded-xl bg-[#B47A67]/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {offer.image ? <img src={offer.image} alt="" className="w-full h-full object-cover" /> : <Tag className="h-5 w-5 text-[#B47A67]" />}
+              {getOfferImage(offer) ? <img src={getOfferImage(offer)} alt="" className="w-full h-full object-cover" /> : <Tag className="h-5 w-5 text-[#B47A67]" />}
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-sm text-[#8E5E4F]">{offer.title}</h3>

@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import useStoreOffers from '@/hooks/useStoreOffers';
+import { getOfferImage } from '@/lib/offers';
 
 export default function OffersSlider() {
   const { offers } = useStoreOffers();
@@ -32,7 +33,11 @@ export default function OffersSlider() {
         <div className="flex">
           {offers.map(offer => (
             <div key={offer.id} className="flex-none w-full relative h-[400px] md:h-[480px]">
-              <img src={offer.image} alt={offer.title} className="absolute inset-0 w-full h-full object-cover" />
+              {getOfferImage(offer) ? (
+                <img src={getOfferImage(offer)} alt={offer.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" decoding="async" />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-[#8E5E4F] via-[#B47A67] to-[#E8D8D1]" />
+              )}
               <div className={`absolute inset-0 bg-gradient-to-r ${offer.bg || 'from-[#8E5E4F]/80 to-transparent'} opacity-75`} />
               <div className="absolute inset-0 flex items-center px-12 md:px-20">
                 <div className="text-white max-w-lg">

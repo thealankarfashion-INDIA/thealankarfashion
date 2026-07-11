@@ -130,6 +130,13 @@ export interface Offer {
   cta?: string;
   badge?: string;
   image?: string;
+  imageUrl?: string;
+  banner?: string;
+  bannerImage?: string;
+  backgroundImage?: string;
+  bgImage?: string;
+  coverImage?: string;
+  desktopImage?: string;
   order?: number;
   active?: boolean;
   countdown?: { days: number; hours: number; minutes: number };

@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import useStoreOffers from '@/hooks/useStoreOffers';
+import { getOfferImage } from '@/lib/offers';
 
 /**
  * Compact Flipkart-style offers slider — no heading, edge-to-edge banners
@@ -30,12 +31,14 @@ export default function CompactOffersSlider() {
               <Link href="/shop">
                 <a className="block">
                   <div className="relative w-full h-[160px] md:h-[200px]">
-                    {offer.image ? (
+                    {getOfferImage(offer) ? (
                       <>
                         <img
-                          src={offer.image}
+                          src={getOfferImage(offer)}
                           alt={offer.title || 'Special Offer'}
-                          className="w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                         {/* Overlay text */}
                         {offer.title && (
