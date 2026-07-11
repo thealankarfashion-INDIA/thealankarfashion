@@ -7,10 +7,33 @@ const ADMIN_RECOVERY_ERROR_STORAGE_KEY = "thealankar_admin_recovery_error";
 const ADMIN_RECOVERY_REQUEST_KEY = "thealankar_admin_recovery_requested_at";
 const SPA_REDIRECT_STORAGE_KEY = "thealankar_spa_redirect";
 const ADMIN_RECOVERY_REQUEST_TTL_MS = 2 * 60 * 60 * 1000;
+const ADMIN_RESET_ROUTE = "/admin/reset-password";
+const ADMIN_RESET_MARKERS = {
+  "admin-reset": "1",
+  admin: "antomanage",
+};
+const PRODUCTION_SITE_ORIGIN = "https://thealankar.in";
 
 function getCleanPathname(pathname = "") {
   const cleanPath = pathname.replace(/\/+$/, "");
   return cleanPath || "/";
+}
+
+function getRoutePathname(pathname = "") {
+  const cleanPath = getCleanPathname(pathname);
+  const configuredBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const basePaths = [configuredBase, "/thealankarfashion"].filter(
+    (basePath) => basePath && basePath !== "/"
+  );
+
+  for (const basePath of basePaths) {
+    if (cleanPath === basePath) return "/";
+    if (cleanPath.startsWith(`${basePath}/`)) {
+      return getCleanPathname(cleanPath.slice(basePath.length));
+    }
+  }
+
+  return cleanPath;
 }
 
 function restoreSpaRedirect() {
@@ -24,15 +47,45 @@ function restoreSpaRedirect() {
   }
 }
 
+function getAppBasePath() {
+  const configuredBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+  if (configuredBase && configuredBase !== "/") return configuredBase;
+
+  const path = getCleanPathname(window.location.pathname || "");
+  if (path === "/thealankarfashion" || path.startsWith("/thealankarfashion/")) {
+    return "/thealankarfashion";
+  }
+
+  return "";
+}
+
+function getAdminResetSearch(search = "") {
+  const params = new URLSearchParams(search.replace(/^\?/, ""));
+  for (const [key, value] of Object.entries(ADMIN_RESET_MARKERS)) {
+    params.set(key, value);
+  }
+  return `?${params.toString()}`;
+}
+
 function getAdminResetUrl(search = "") {
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  const suffix = search ? `?${search.replace(/^\?/, "")}` : "";
-  return `${window.location.origin}${basePath}/admin/reset-password${suffix}`;
+  return `${getAppBasePath()}${ADMIN_RESET_ROUTE}${getAdminResetSearch(search)}`;
 }
 
 function getAdminResetUrlWithCurrentParams(search = "", hash = "") {
-  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return `${window.location.origin}${basePath}/admin/reset-password${search}${hash}`;
+  return `${getAppBasePath()}${ADMIN_RESET_ROUTE}${getAdminResetSearch(search)}${hash}`;
+}
+
+function getAdminResetRedirectOrigin() {
+  if (typeof window === "undefined") return PRODUCTION_SITE_ORIGIN;
+  const hostname = window.location.hostname;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return window.location.origin;
+  }
+  return PRODUCTION_SITE_ORIGIN;
+}
+
+export function getAdminResetRedirectUrl() {
+  return `${getAdminResetRedirectOrigin()}${ADMIN_RESET_ROUTE}${getAdminResetSearch()}`;
 }
 
 function hasRecentAdminRecoveryRequest() {
@@ -49,7 +102,7 @@ function hasRecentAdminRecoveryRequest() {
 function hasAdminRouteIntent() {
   if (typeof window === "undefined") return false;
   const hash = window.location.hash || "";
-  const path = getCleanPathname(window.location.pathname || "");
+  const path = getRoutePathname(window.location.pathname || "");
   const search = window.location.search || "";
   return (
     hash.startsWith("#/antomanage") ||
@@ -65,21 +118,32 @@ function hasAdminRouteIntent() {
 function captureAdminRecoveryRedirect() {
   if (typeof window === "undefined") return;
   const hash = window.location.hash || "";
-  const path = getCleanPathname(window.location.pathname || "");
+  const path = getRoutePathname(window.location.pathname || "");
   const search = window.location.search || "";
   const hasExpiredLinkError =
     hash.includes("error_code=otp_expired") ||
     hash.includes("Email+link+is+invalid") ||
     hash.includes("has+expired") ||
     search.includes("error_code=otp_expired");
-  const isRecoveryRedirect =
-    hash.includes("type=recovery") ||
+  const hasAdminResetMarker =
+    search.includes("admin-reset=1") || hash.includes("admin-reset=1");
+  const hasRecoveryType =
+    hash.includes("type=recovery") || search.includes("type=recovery");
+  const hasTokenCallback =
     hash.includes("access_token=") ||
     hash.includes("refresh_token=") ||
+    search.includes("code=");
+  const isAdminRecoveryRedirect =
+    hasAdminRouteIntent() ||
+    hasRecentAdminRecoveryRequest() ||
+    hasAdminResetMarker ||
+    hasRecoveryType ||
+    hasExpiredLinkError;
+  const isRecoveryRedirect =
+    hasRecoveryType ||
     hasExpiredLinkError ||
-    search.includes("admin-reset=1") ||
-    search.includes("type=recovery");
-  const isAdminRecoveryRedirect = hasAdminRouteIntent() || hasRecentAdminRecoveryRequest();
+    hasAdminResetMarker ||
+    (hasTokenCallback && isAdminRecoveryRedirect);
 
   if (isRecoveryRedirect && isAdminRecoveryRedirect) {
     window.sessionStorage.setItem(ADMIN_RECOVERY_STORAGE_KEY, "1");
@@ -95,7 +159,7 @@ function captureAdminRecoveryRedirect() {
   if (
     isRecoveryRedirect &&
     isAdminRecoveryRedirect &&
-    path !== "/admin/reset-password"
+    path !== ADMIN_RESET_ROUTE
   ) {
     window.history.replaceState(null, "", getAdminResetUrlWithCurrentParams(search, hash));
     return;
@@ -103,7 +167,7 @@ function captureAdminRecoveryRedirect() {
 
   if (
     search.includes("admin-reset=1") &&
-    path !== "/admin/reset-password" &&
+    path !== ADMIN_RESET_ROUTE &&
     !hash.includes("access_token=") &&
     !hash.includes("refresh_token=") &&
     !hash.includes("type=recovery")

@@ -6,6 +6,7 @@ import {
   clearAdminRecoveryRedirect,
   clearAdminRecoveryError,
   getAdminRecoveryError,
+  getAdminResetRedirectUrl,
   hasAdminRecoveryRedirect,
   markAdminRecoveryRequested,
   supabase,
@@ -17,10 +18,6 @@ type AdminResetStep = "email" | "link" | "password";
 interface AdminLoginProps {
   onLogin: () => void;
   mode?: "login" | "reset";
-}
-
-function getAdminResetRedirectUrl() {
-  return `${window.location.origin}/admin/reset-password`;
 }
 
 function getCleanPathname(pathname = "") {

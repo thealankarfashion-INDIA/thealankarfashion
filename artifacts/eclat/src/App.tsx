@@ -51,6 +51,23 @@ function getCleanPathname(pathname = "") {
   return cleanPath || "/";
 }
 
+function getRoutePathname(pathname = "") {
+  const cleanPath = getCleanPathname(pathname);
+  const configuredBase = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const basePaths = [configuredBase, "/thealankarfashion"].filter(
+    (basePath) => basePath && basePath !== "/"
+  );
+
+  for (const basePath of basePaths) {
+    if (cleanPath === basePath) return "/";
+    if (cleanPath.startsWith(`${basePath}/`)) {
+      return getCleanPathname(cleanPath.slice(basePath.length));
+    }
+  }
+
+  return cleanPath;
+}
+
 function Router() {
   return (
     <Suspense fallback={<PageLoader />}>
@@ -94,7 +111,7 @@ function App() {
 
   const isAdminLocation = () => {
     const hash = window.location.hash || "";
-    const path = getCleanPathname(window.location.pathname || "");
+    const path = getRoutePathname(window.location.pathname || "");
     const search = window.location.search || "";
     const isExplicitAdminRoute =
       hash.startsWith("#/antomanage") ||

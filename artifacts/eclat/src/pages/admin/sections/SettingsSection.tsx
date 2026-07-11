@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Trash2, Loader2, Check, Save, Smartphone, Mail, CreditCard, ShoppingBag, KeyRound, Eye, EyeOff, Send } from "lucide-react";
-import { getDB, markAdminRecoveryRequested, supabase } from "@/lib/supabase";
+import { getAdminResetRedirectUrl, getDB, markAdminRecoveryRequested, supabase } from "@/lib/supabase";
 import { collection, getDocs, deleteDoc, doc, getDoc, setDoc, serverTimestamp } from "@/lib/supabaseStore";
 
 interface StoreSettings { storeName: string; storePhone: string; storeEmail: string; storeWhatsApp: string; upiId: string; upiPayeeName: string; minOrderAmount: number; }
@@ -32,11 +32,6 @@ export function SettingsSection() {
   }, []);
 
   const handleSave = async () => { setSaving(true); try { await setDoc(doc(getDB(), "settings", "storeSettings"), { ...settings, updatedAt: serverTimestamp() }); setSuccessMsg("Settings updated successfully."); setTimeout(() => setSuccessMsg(""), 3000); } catch (err) { console.error(err); alert("Failed to save."); } finally { setSaving(false); } };
-
-  const getAdminResetRedirectUrl = () => {
-    const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-    return `${window.location.origin}${basePath}/admin/reset-password`;
-  };
 
   const clearPasswordMessages = () => { setPasswordError(""); setPasswordSuccess(""); };
 

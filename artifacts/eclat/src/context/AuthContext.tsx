@@ -79,9 +79,31 @@ async function upsertUserDoc(user: AppUser) {
   );
 }
 
+function getCleanPathname(pathname = '') {
+  const cleanPath = pathname.replace(/\/+$/, '');
+  return cleanPath || '/';
+}
+
+function getRoutePathname(pathname = '') {
+  const cleanPath = getCleanPathname(pathname);
+  const configuredBase = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const basePaths = [configuredBase, '/thealankarfashion'].filter(
+    (basePath) => basePath && basePath !== '/'
+  );
+
+  for (const basePath of basePaths) {
+    if (cleanPath === basePath) return '/';
+    if (cleanPath.startsWith(`${basePath}/`)) {
+      return getCleanPathname(cleanPath.slice(basePath.length));
+    }
+  }
+
+  return cleanPath;
+}
+
 function isAdminPasswordRecoveryRoute() {
   if (typeof window === 'undefined') return false;
-  const cleanPath = window.location.pathname.replace(/\/+$/, '') || '/';
+  const cleanPath = getRoutePathname(window.location.pathname || '');
   const search = window.location.search || '';
   const hash = window.location.hash || '';
   return (
