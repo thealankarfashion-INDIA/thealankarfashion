@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, ChevronRight, ArrowLeft, Mail } from "lucide-react";
 import { Link } from "wouter";
-import { supabase } from "@/lib/supabase";
+import { clearAdminRecoveryRedirect, hasAdminRecoveryRedirect, supabase } from "@/lib/supabase";
 
 const ADMIN_EMAIL = "thealankar.fashion@gmail.com";
 type AdminResetStep = "email" | "link" | "password";
@@ -14,7 +14,7 @@ interface AdminLoginProps {
 
 function getAdminResetRedirectUrl() {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-  return `${window.location.origin}${basePath}/?admin-reset=1`;
+  return `${window.location.origin}${basePath}/?admin-reset=1&admin=antomanage`;
 }
 
 function getAdminQueryMode() {
@@ -56,10 +56,10 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
   const [recoveryReady, setRecoveryReady] = useState(false);
   const queryParams = typeof window === "undefined" ? null : getAdminQueryMode();
   const queryMode =
-    queryParams?.get("reset") === "1" || queryParams?.get("admin-reset") === "1"
-      ? "reset"
-      : queryParams?.get("type") === "recovery" || queryParams?.has("access_token")
-        ? "recovery"
+    hasAdminRecoveryRedirect() || queryParams?.get("type") === "recovery" || queryParams?.has("access_token")
+      ? "recovery"
+      : queryParams?.get("reset") === "1" || queryParams?.get("admin-reset") === "1"
+        ? "reset"
         : "";
 
   useEffect(() => {
@@ -76,6 +76,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       setRecoveryReady(!!data.session);
+      if (data.session && hasAdminRecoveryRedirect()) setResetStep("password");
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -116,6 +117,7 @@ export function AdminLogin({ onLogin, mode = "login" }: AdminLoginProps) {
     setNewPassword("");
     setConfirmNewPassword("");
     await supabase.auth.signOut();
+    clearAdminRecoveryRedirect();
     setResetMode(false);
     setResetStep("email");
     setAuthStep("email");

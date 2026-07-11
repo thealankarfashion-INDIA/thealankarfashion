@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AdminLogin } from "./AdminLogin";
 import { AdminDashboard } from "./AdminDashboard";
-import { supabase } from "@/lib/supabase";
+import { hasAdminRecoveryRedirect, supabase } from "@/lib/supabase";
 
 function isAdminResetLocation() {
   if (typeof window === "undefined") return false;
@@ -9,6 +9,7 @@ function isAdminResetLocation() {
   const path = window.location.pathname || "";
   const search = window.location.search || "";
   return (
+    hasAdminRecoveryRedirect() ||
     hash.startsWith("#/antomanage/reset-password") ||
     hash.includes("reset=1") ||
     hash.includes("type=recovery") ||

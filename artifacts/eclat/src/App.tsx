@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 import { StoreDataProvider } from "@/context/StoreDataContext";
+import { hasAdminRecoveryRedirect } from "@/lib/supabase";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import BottomNav from "@/components/layout/BottomNav";
 const AdminPanel = lazy(() => import("@/pages/admin/AdminPanel").then(m => ({ default: m.AdminPanel })));
@@ -84,6 +85,7 @@ function App() {
     const path = window.location.pathname || "";
     const search = window.location.search || "";
     return (
+      hasAdminRecoveryRedirect() ||
       hash.startsWith("#/antomanage") ||
       hash.includes("type=recovery") ||
       hash.includes("access_token=") ||
