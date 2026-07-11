@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2, X, Check, Tag, Upload, Image as ImageIcon, Users, 
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, query, getDocs, where, writeBatch } from "@/lib/supabaseStore";
 import { getDB } from "@/lib/supabase";
 import { Coupon, assignCouponToUser } from "@/lib/user";
+import { getCouponBannerImage, getCouponIconImage } from "@/lib/coupons";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
 
 async function resizeImage(file: File, maxWidth = 400, quality = 0.8): Promise<string> {
@@ -48,6 +49,7 @@ export function CouponsSection() {
     code: "",
     description: "",
     icon: "",
+    image: "",
     active: true,
     type: "percentage",
     discount: 0,
@@ -104,7 +106,7 @@ export function CouponsSection() {
   }, []);
 
   const openAdd = () => { 
-    setForm({ brandName: "", title: "", subtitle: "", code: "", description: "", icon: "", active: true, type: "percentage", discount: 0, freeProductId: "" }); 
+    setForm({ brandName: "", title: "", subtitle: "", code: "", description: "", icon: "", image: "", active: true, type: "percentage", discount: 0, freeProductId: "" }); 
     setEditId(null); 
     setModalOpen(true); 
   };
@@ -117,6 +119,7 @@ export function CouponsSection() {
       code: c.code || "", 
       description: c.description || "", 
       icon: c.icon || "", 
+      image: getCouponBannerImage(c), 
       active: c.active !== false,
       type: c.type || "percentage",
       discount: c.discount || 0,
@@ -136,8 +139,10 @@ export function CouponsSection() {
     setSaving(true);
     try {
       const db = getDB();
-      const data: any = { 
+      const data: any = {
         ...form,
+        image: form.image.trim(),
+        icon: form.icon.trim(),
         updatedAt: serverTimestamp() 
       };
       if (editId) { 
@@ -256,7 +261,7 @@ export function CouponsSection() {
           {coupons.map((coupon, i) => (
             <motion.div key={coupon.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ delay: i * 0.05 }} className={`bg-white border border-[#E8D8D1] rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-5 ${!coupon.active ? 'opacity-50' : ''}`}>
               <div className="h-14 w-14 rounded-full bg-[#B47A67]/10 flex items-center justify-center flex-shrink-0 overflow-hidden border border-[#E8D8D1]">
-                {coupon.icon ? <img src={coupon.icon} alt="" className="w-full h-full object-cover" /> : <Gift className="h-6 w-6 text-[#B47A67]" />}
+                {getCouponIconImage(coupon) ? <img src={getCouponIconImage(coupon)} alt="" className="w-full h-full object-cover" /> : <Gift className="h-6 w-6 text-[#B47A67]" />}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-sm text-[#8E5E4F]">{coupon.brandName}</h3>
@@ -299,6 +304,20 @@ export function CouponsSection() {
                     <div className="flex items-center justify-center gap-2 px-4 py-3 bg-[#F7F1EE] border border-dashed border-[#B47A67] text-[#B47A67] rounded-xl hover:bg-[#B47A67]/5 transition-colors text-sm font-medium"><Upload className="h-4 w-4" /> Upload Icon</div>
                   </label>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs tracking-wider uppercase text-[#8E5E4F]/50 mb-2">Coupon Banner Background</label>
+                <div className="rounded-2xl overflow-hidden border border-[#E8D8D1] bg-[#F7F1EE] mb-3 aspect-[3/1]">
+                  {form.image ? (
+                    <img src={form.image} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-[#8E5E4F]/40">No banner selected</div>
+                  )}
+                </div>
+                <label className="cursor-pointer">
+                  <input type="file" className="hidden" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if (file) { const base64 = await resizeImage(file, 900, 0.82); setForm(prev => ({ ...prev, image: base64 })); } }} />
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 bg-[#F7F1EE] border border-dashed border-[#B47A67] text-[#B47A67] rounded-xl hover:bg-[#B47A67]/5 transition-colors text-sm font-medium"><Upload className="h-4 w-4" /> Upload Banner Image</div>
+                </label>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>

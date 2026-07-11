@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, ArrowRight, X } from 'lucide-react';
 import { UserCoupon, markCouponScratched } from '@/lib/user';
+import { getCouponBannerImage, getCouponIconImage } from '@/lib/coupons';
 
 interface CouponScratchCardProps {
   userCoupon: UserCoupon;
@@ -21,6 +22,17 @@ export default function CouponScratchCard({ userCoupon, userId, onViewDetails, o
   const lastPoint = useRef<{x: number, y: number} | null>(null);
 
   const { couponData } = userCoupon;
+  const bannerImage = getCouponBannerImage(couponData);
+  const iconImage = getCouponIconImage(couponData);
+  const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
+  const showBannerImage = Boolean(bannerImage && !bannerLoadFailed);
+  const showIconImage = Boolean(iconImage && !iconLoadFailed);
+
+  useEffect(() => {
+    setBannerLoadFailed(false);
+    setIconLoadFailed(false);
+  }, [userCoupon.id, bannerImage, iconImage]);
 
   const handleTap = () => {
     if (isScratched) return;
@@ -243,10 +255,28 @@ export default function CouponScratchCard({ userCoupon, userId, onViewDetails, o
         ) : (
           // Scratched HTML for Grid
           <div className="absolute inset-0 bg-white flex flex-col items-center justify-between pointer-events-none">
-            <div className="flex flex-col items-center p-4 pt-7 text-center flex-1 w-full relative">
+            <div className="absolute inset-0 bg-[#F7F1EE]">
+              {showBannerImage ? (
+                <img
+                  src={bannerImage}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={() => setBannerLoadFailed(true)}
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#FFF8F1] via-[#F7F1EE] to-[#E8D8D1]" />
+              )}
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-white/75 to-white" />
+            <div className="relative z-10 flex flex-col items-center p-4 pt-7 text-center flex-1 w-full">
               <div className="w-12 h-12 rounded-full border border-gray-100 overflow-hidden flex items-center justify-center mb-3 bg-white shadow-sm shrink-0">
-                {couponData.icon ? (
-                  <img src={couponData.icon} alt={couponData.brandName} className="w-full h-full object-cover" />
+                {showIconImage ? (
+                  <img
+                    src={iconImage}
+                    alt={couponData.brandName}
+                    className="w-full h-full object-cover"
+                    onError={() => setIconLoadFailed(true)}
+                  />
                 ) : (
                   <Gift className="w-6 h-6 text-gray-400" />
                 )}
@@ -255,7 +285,7 @@ export default function CouponScratchCard({ userCoupon, userId, onViewDetails, o
               <p className="text-[#1A1A1A] text-[15px] font-bold leading-tight line-clamp-2 w-full px-1">{couponData.title}</p>
             </div>
             
-            <div className="w-full border-t border-dashed border-gray-200 bg-white">
+            <div className="relative z-10 w-full border-t border-dashed border-gray-200 bg-white/95">
               <div className="w-full py-3.5 flex items-center justify-center gap-1.5 text-[#8E5E4F] text-[14px] font-semibold">
                 View details 
                 <div className="w-4 h-4 rounded-full bg-[#8E5E4F] text-white flex items-center justify-center">
@@ -310,16 +340,34 @@ export default function CouponScratchCard({ userCoupon, userId, onViewDetails, o
             >
               {/* Revealed Content (underneath foil) */}
               <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-16 h-16 rounded-full border border-gray-100 overflow-hidden flex items-center justify-center mb-4 bg-white shadow-sm shrink-0">
-                  {couponData.icon ? (
-                    <img src={couponData.icon} alt={couponData.brandName} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-[#F7F1EE]">
+                  {showBannerImage ? (
+                    <img
+                      src={bannerImage}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={() => setBannerLoadFailed(true)}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-[#FFF8F1] via-[#F7F1EE] to-[#E8D8D1]" />
+                  )}
+                </div>
+                <div className="absolute inset-0 bg-white/82 backdrop-blur-[1px]" />
+                <div className="relative z-10 w-16 h-16 rounded-full border border-gray-100 overflow-hidden flex items-center justify-center mb-4 bg-white shadow-sm shrink-0">
+                  {showIconImage ? (
+                    <img
+                      src={iconImage}
+                      alt={couponData.brandName}
+                      className="w-full h-full object-cover"
+                      onError={() => setIconLoadFailed(true)}
+                    />
                   ) : (
                     <Gift className="w-8 h-8 text-gray-400" />
                   )}
                 </div>
-                <h4 className="font-semibold text-[#4A4A4A] text-[16px] tracking-wide mb-2 w-full truncate">{couponData.brandName}</h4>
-                <p className="text-[#1A1A1A] text-[18px] font-bold leading-tight w-full">{couponData.title}</p>
-                {isScratched && <p className="text-[#8E5E4F] text-[13px] mt-4 font-semibold animate-pulse">Loading your reward...</p>}
+                <h4 className="relative z-10 font-semibold text-[#4A4A4A] text-[16px] tracking-wide mb-2 w-full truncate">{couponData.brandName}</h4>
+                <p className="relative z-10 text-[#1A1A1A] text-[18px] font-bold leading-tight w-full">{couponData.title}</p>
+                {isScratched && <p className="relative z-10 text-[#8E5E4F] text-[13px] mt-4 font-semibold animate-pulse">Loading your reward...</p>}
               </div>
 
               {/* Canvas Foil Layer */}

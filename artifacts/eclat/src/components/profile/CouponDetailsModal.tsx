@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Gift, Check } from 'lucide-react';
 import { UserCoupon } from '@/lib/user';
 import { useLocation } from 'wouter';
+import { getCouponBannerImage, getCouponIconImage } from '@/lib/coupons';
 
 interface CouponDetailsModalProps {
   userCoupon: UserCoupon | null;
@@ -12,10 +13,22 @@ interface CouponDetailsModalProps {
 
 export default function CouponDetailsModal({ userCoupon, isOpen, onClose }: CouponDetailsModalProps) {
   const [copied, setCopied] = useState(false);
+  const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
+  const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const [, setLocation] = useLocation();
 
-  if (!userCoupon) return null;
-  const { couponData } = userCoupon;
+  const couponData = userCoupon?.couponData;
+  const bannerImage = getCouponBannerImage(couponData);
+  const iconImage = getCouponIconImage(couponData);
+  const showBannerImage = Boolean(bannerImage && !bannerLoadFailed);
+  const showIconImage = Boolean(iconImage && !iconLoadFailed);
+
+  useEffect(() => {
+    setBannerLoadFailed(false);
+    setIconLoadFailed(false);
+  }, [userCoupon?.id, bannerImage, iconImage]);
+
+  if (!userCoupon || !couponData) return null;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(couponData.code);
@@ -57,17 +70,35 @@ export default function CouponDetailsModal({ userCoupon, isOpen, onClose }: Coup
               transition={{ delay: 0.1, duration: 0.3 }}
               className="bg-white rounded-[24px] shadow-xl w-full max-w-[340px] px-6 pb-6 pt-12 flex flex-col items-center text-center relative z-10 pointer-events-auto mb-[-24px] md:mb-6"
             >
-              <div className="absolute -top-10 w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+              <div className="absolute inset-0 rounded-[24px] overflow-hidden bg-[#F7F1EE]">
+                {showBannerImage ? (
+                  <img
+                    src={bannerImage}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={() => setBannerLoadFailed(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#FFF8F1] via-[#F7F1EE] to-[#E8D8D1]" />
+                )}
+              </div>
+              <div className="absolute inset-0 rounded-[24px] bg-white/82 backdrop-blur-[1px]" />
+              <div className="absolute -top-10 z-20 w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
                 <div className="w-[72px] h-[72px] rounded-full border border-gray-100 overflow-hidden flex items-center justify-center bg-white">
-                  {couponData.icon ? (
-                    <img src={couponData.icon} alt={couponData.brandName} className="w-full h-full object-cover" />
+                  {showIconImage ? (
+                    <img
+                      src={iconImage}
+                      alt={couponData.brandName}
+                      className="w-full h-full object-cover"
+                      onError={() => setIconLoadFailed(true)}
+                    />
                   ) : (
                     <Gift className="w-8 h-8 text-gray-400" />
                   )}
                 </div>
               </div>
               
-              <div className="w-full">
+              <div className="relative z-10 w-full">
                 <h2 className="text-[19px] font-bold text-[#1A1A1A] mb-2">{couponData.brandName}</h2>
                 <p className="text-[15px] text-[#4A4A4A] font-medium leading-snug mb-3 px-2">
                   {couponData.title}

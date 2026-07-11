@@ -29,6 +29,13 @@ export interface Coupon {
   code: string;
   description: string;
   icon: string;
+  image?: string;
+  imageUrl?: string;
+  banner?: string;
+  bannerImage?: string;
+  backgroundImage?: string;
+  bgImage?: string;
+  coverImage?: string;
   validTill: string | Date | any; // Any allows for Firestore Timestamp
   active: boolean;
   createdAt: any;
