@@ -15,23 +15,23 @@ import{r as c,j as g,R as W,a as Nt,b as Cr,c as Tn}from"./vendor-react-x0ZrSqro
     margin-right: `).concat(i,"px ").concat(o,`;
     `),n==="padding"&&"padding-right: ".concat(i,"px ").concat(o,";")].filter(Boolean).join(""),`
   }
-
+  
   .`).concat(Ve,` {
     right: `).concat(i,"px ").concat(o,`;
   }
-
+  
   .`).concat(ze,` {
     margin-right: `).concat(i,"px ").concat(o,`;
   }
-
+  
   .`).concat(Ve," .").concat(Ve,` {
     right: 0 `).concat(o,`;
   }
-
+  
   .`).concat(ze," .").concat(ze,` {
     margin-right: 0 `).concat(o,`;
   }
-
+  
   body[`).concat(ge,`] {
     `).concat(ul,": ").concat(i,`px;
   }

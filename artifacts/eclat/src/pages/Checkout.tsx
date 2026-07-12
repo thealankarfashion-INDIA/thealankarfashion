@@ -504,7 +504,7 @@ export default function Checkout() {
   }, [currentCheckoutDetails, user]);
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading) return;
 
     const params = new URLSearchParams(window.location.search);
     if (params.get(RAZORPAY_LINK_RETURN_PARAM) !== "1") return;
@@ -546,7 +546,7 @@ export default function Checkout() {
         sessionStorage.removeItem(PENDING_RAZORPAY_LINK_KEY);
         sessionStorage.setItem("last_order_id", oid);
         clearStockReleaseTimer(oid);
-        if (pending.orderId === oid) {
+        if (pending.orderId === oid && user) {
           if ((pending.discount || 0) > 0) await addSavings(user.uid, pending.discount || 0).catch(console.error);
           if ((pending.walletDiscount || 0) > 0) await deductWalletBalance(user.uid, pending.walletDiscount || 0, oid).catch(console.error);
         }
@@ -574,6 +574,8 @@ export default function Checkout() {
 
   useEffect(() => {
     if (authLoading || user) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get(RAZORPAY_LINK_RETURN_PARAM) === "1") return;
     const nextPath = `/checkout${window.location.search}`;
     sessionStorage.setItem('thealankar_post_auth_redirect', nextPath);
     setLocation(`/profile?next=${encodeURIComponent(nextPath)}`);

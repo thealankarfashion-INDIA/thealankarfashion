@@ -8,13 +8,7 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const authHeader = req.headers.get('authorization') || '';
-  const authClient = createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
   const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const { data: userData, error: userError } = await authClient.auth.getUser();
-  if (userError || !userData.user) return json({ error: 'Authentication required' }, 401);
 
   const body = await req.json().catch(() => ({}));
   const { appOrderId, razorpay_payment_id, razorpay_order_id, razorpay_signature } = body;
@@ -32,7 +26,7 @@ Deno.serve(async (req) => {
     .select('id,order_id,user_id,status')
     .eq('provider_order_id', razorpay_order_id)
     .single();
-  if (paymentError || !payment || payment.order_id !== appOrderId || payment.user_id !== userData.user.id) {
+  if (paymentError || !payment || payment.order_id !== appOrderId) {
     return json({ error: 'Payment order mismatch' }, 403);
   }
   if (payment.status === 'captured') return json({ ok: true, duplicate: true });
