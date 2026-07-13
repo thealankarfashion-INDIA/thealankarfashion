@@ -12,6 +12,7 @@ type RazorpayPaymentLink = {
 };
 
 type OrderRow = {
+  id: string;
   user_id: string | null;
   data: Record<string, unknown> | null;
 };
@@ -56,6 +57,32 @@ async function findExistingPayment(supabase: ReturnType<typeof createClient>, pr
     .maybeSingle();
   if (byPayment.error) console.error('Payment lookup by provider payment failed', byPayment.error);
   return byPayment.data;
+}
+
+async function findLinkedOrder(
+  supabase: ReturnType<typeof createClient>,
+  candidates: Array<string | null | undefined>,
+) {
+  const orderIds = [...new Set(candidates
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value.trim()))];
+
+  if (orderIds.length === 0) return null;
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id,user_id,data')
+    .in('id', orderIds)
+    .returns<OrderRow[]>();
+
+  if (error) {
+    console.error('Order lookup failed during Razorpay payment-link verification', error);
+    return null;
+  }
+
+  return orderIds
+    .map((id) => data?.find((order) => order.id === id))
+    .find((order): order is OrderRow => Boolean(order)) || null;
 }
 
 async function saveCapturedPayment(
@@ -162,31 +189,32 @@ Deno.serve(async (req) => {
     return json({ error: 'Unable to confirm payment with Razorpay' }, 502);
   }
 
-  if (razorpayLink.id !== razorpay_payment_link_id || razorpayLink.status !== 'paid' || razorpayLink.reference_id !== appOrderId) {
+  if (razorpayLink.id !== razorpay_payment_link_id || razorpayLink.status !== 'paid') {
     return json({ error: 'Payment order mismatch' }, 403);
   }
 
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .select('user_id,data')
-    .eq('id', appOrderId)
-    .single<OrderRow>();
-  if (orderError || !order) {
-    console.error('Order lookup failed during Razorpay verification', orderError);
+  const order = await findLinkedOrder(supabase, [
+    payment?.order_id,
+    razorpayLink.notes?.app_order_id,
+    razorpayLink.reference_id,
+    appOrderId,
+  ]);
+  if (!order) {
     return json({ error: 'Order not found' }, 404);
   }
+  const resolvedAppOrderId = order.id;
 
-  if (payment && payment.order_id !== appOrderId) {
-    console.error('Existing payment row points to another order', {
+  if (payment && payment.order_id !== resolvedAppOrderId) {
+    console.warn('Reconciling Razorpay payment link with its linked order', {
       paymentId: payment.id,
       existingOrderId: payment.order_id,
-      appOrderId,
+      requestedOrderId: appOrderId,
+      resolvedAppOrderId,
     });
-    payment = null;
   }
 
   const paymentResult = await saveCapturedPayment(supabase, payment, {
-    appOrderId,
+    appOrderId: resolvedAppOrderId,
     userId: order.user_id || razorpayLink.notes?.user_id || null,
     providerOrderId: razorpay_payment_link_id,
     providerPaymentId: razorpay_payment_id,
@@ -198,11 +226,11 @@ Deno.serve(async (req) => {
     return json({ error: 'Failed to save payment status' }, 500);
   }
 
-  const orderResult = await markOrderPaid(supabase, appOrderId, order, razorpay_payment_id, razorpay_payment_link_id);
+  const orderResult = await markOrderPaid(supabase, resolvedAppOrderId, order, razorpay_payment_id, razorpay_payment_link_id);
   if (orderResult.error) {
     console.error('Failed to mark order paid', orderResult.error);
     return json({ error: 'Failed to update order status' }, 500);
   }
 
-  return json({ ok: true, appOrderId });
+  return json({ ok: true, appOrderId: resolvedAppOrderId });
 });
