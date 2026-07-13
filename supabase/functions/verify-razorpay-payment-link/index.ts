@@ -119,27 +119,15 @@ async function saveCapturedPayment(
 async function markOrderPaid(
   supabase: ReturnType<typeof createClient>,
   appOrderId: string,
-  order: OrderRow,
   razorpayPaymentId: string,
   razorpayLinkId: string,
 ) {
-  const now = new Date().toISOString();
-  return await supabase
-    .from('orders')
-    .update({
-      data: {
-        ...(order.data || {}),
-        transactionId: razorpayPaymentId,
-        paymentMethod: 'Razorpay',
-        paymentStatus: 'Paid',
-        razorpayPaymentId,
-        razorpayPaymentLinkId: razorpayLinkId,
-        orderStatus: 'Verified',
-        updatedAt: now,
-      },
-      updated_at: now,
-    })
-    .eq('id', appOrderId);
+  return await supabase.rpc('mark_order_paid', {
+    target_order_id: appOrderId,
+    provider_payment_id: razorpayPaymentId,
+    provider_order_id: razorpayLinkId,
+    provider_payment_link_id: razorpayLinkId,
+  });
 }
 
 Deno.serve(async (req) => {
@@ -177,9 +165,6 @@ Deno.serve(async (req) => {
   const appOrderId = razorpay_payment_link_reference_id;
 
   let payment = await findExistingPayment(supabase, razorpay_payment_link_id, razorpay_payment_id);
-  if (payment?.status === 'captured' && payment.order_id === appOrderId) {
-    return json({ ok: true, duplicate: true, appOrderId });
-  }
 
   let razorpayLink: RazorpayPaymentLink;
   try {
@@ -226,7 +211,7 @@ Deno.serve(async (req) => {
     return json({ error: 'Failed to save payment status' }, 500);
   }
 
-  const orderResult = await markOrderPaid(supabase, resolvedAppOrderId, order, razorpay_payment_id, razorpay_payment_link_id);
+  const orderResult = await markOrderPaid(supabase, resolvedAppOrderId, razorpay_payment_id, razorpay_payment_link_id);
   if (orderResult.error) {
     console.error('Failed to mark order paid', orderResult.error);
     return json({ error: 'Failed to update order status' }, 500);

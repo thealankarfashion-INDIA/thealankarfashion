@@ -35,6 +35,14 @@ Deno.serve(async (req) => {
   const keySecret = Deno.env.get('RAZORPAY_KEY_SECRET');
   if (!keyId || !keySecret) return json({ error: 'Razorpay keys are not configured' }, 500);
 
+  const { error: stockError } = await supabase.rpc('reserve_order_stock', {
+    target_order_id: appOrderId,
+  });
+  if (stockError) {
+    console.error('Failed to reserve order stock', stockError);
+    return json({ error: stockError.message || 'Unable to reserve product stock' }, 409);
+  }
+
   const basic = btoa(`${keyId}:${keySecret}`);
   const response = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
@@ -48,6 +56,7 @@ Deno.serve(async (req) => {
   });
   const razorpayOrder = await response.json();
   if (!response.ok) {
+    await supabase.rpc('release_order_stock', { target_order_id: appOrderId });
     return json({
       error: razorpayOrder?.error?.description || 'Payment order creation failed',
       code: razorpayOrder?.error?.code,
@@ -65,6 +74,7 @@ Deno.serve(async (req) => {
   }, { onConflict: 'provider_order_id' });
   if (paymentError) {
     console.error('Failed to save Razorpay order tracking record', paymentError);
+    await supabase.rpc('release_order_stock', { target_order_id: appOrderId });
     return json({ error: 'Payment tracking could not be initialized' }, 500);
   }
 

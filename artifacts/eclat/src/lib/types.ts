@@ -204,6 +204,8 @@ export interface Order {
   deliveryType?: 'Standard' | 'Express';
   orderStatus: OrderStatus;
   stockReserved?: boolean;
+  stockDeducted?: boolean;
+  stockCommitted?: boolean;
   stockRestored?: boolean;
   reservationExpiresAt?: any;
   stockRestoredAt?: any;

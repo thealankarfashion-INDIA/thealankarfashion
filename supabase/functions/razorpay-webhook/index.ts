@@ -38,30 +38,12 @@ Deno.serve(async (req) => {
   }
 
   if (status === 'captured') {
-    const { data: order, error: orderReadError } = await supabase
-      .from('orders')
-      .select('data')
-      .eq('id', record.order_id)
-      .single();
-    if (orderReadError || !order) {
-      console.error('Razorpay webhook order lookup failed', orderReadError);
-      return json({ error: 'Order lookup failed' }, 500);
-    }
-
-    const updatedAt = new Date().toISOString();
-    const { error: orderUpdateError } = await supabase.from('orders').update({
-      data: {
-        ...(order?.data || {}),
-        transactionId: payment.id,
-        razorpayPaymentId: payment.id,
-        razorpayOrderId: orderId,
-        paymentStatus: 'Paid',
-        paymentMethod: 'Razorpay',
-        orderStatus: 'Verified',
-        updatedAt,
-      },
-      updated_at: updatedAt,
-    }).eq('id', record.order_id);
+    const { error: orderUpdateError } = await supabase.rpc('mark_order_paid', {
+      target_order_id: record.order_id,
+      provider_payment_id: payment.id,
+      provider_order_id: orderId,
+      provider_payment_link_id: null,
+    });
     if (orderUpdateError) {
       console.error('Razorpay webhook order update failed', orderUpdateError);
       return json({ error: 'Order update failed' }, 500);
