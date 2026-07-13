@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+// Supabase browser credentials are public project identifiers. Keep production
+// defaults so a local/static build cannot publish a bundle that crashes before
+// React mounts when build-time environment variables are unavailable.
+const supabaseUrl =
+  import.meta.env.VITE_SUPABASE_URL || "https://rcxrydarrnyuasussdcn.supabase.co";
+const supabasePublishableKey =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  "sb_publishable_XP1XQhAukDiJkHB3svi5MQ_j28_ym0u";
 const ADMIN_RECOVERY_STORAGE_KEY = "thealankar_admin_recovery";
 const ADMIN_RECOVERY_ERROR_STORAGE_KEY = "thealankar_admin_recovery_error";
 const ADMIN_RECOVERY_REQUEST_KEY = "thealankar_admin_recovery_requested_at";
