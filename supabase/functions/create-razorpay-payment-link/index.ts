@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     }, 502);
   }
 
-  await supabase.from('payments').upsert({
+  const { error: paymentError } = await supabase.from('payments').upsert({
     order_id: appOrderId,
     user_id: userData.user.id,
     provider_order_id: paymentLink.id,
@@ -93,6 +93,10 @@ Deno.serve(async (req) => {
     amount_paise: amountPaise,
     raw_payload: paymentLink,
   }, { onConflict: 'provider_order_id' });
+  if (paymentError) {
+    console.error('Failed to save Razorpay payment-link tracking record', paymentError);
+    return json({ error: 'Payment tracking could not be initialized' }, 500);
+  }
 
   return json({
     appOrderId,

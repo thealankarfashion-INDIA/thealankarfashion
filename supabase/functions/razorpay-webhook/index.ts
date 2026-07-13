@@ -17,27 +17,55 @@ Deno.serve(async (req) => {
   if (!orderId) return json({ ok: true, ignored: true });
 
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-  const { data: record } = await supabase.from('payments').select('id,order_id').eq('provider_order_id', orderId).single();
+  const { data: record, error: recordError } = await supabase
+    .from('payments')
+    .select('id,order_id')
+    .eq('provider_order_id', orderId)
+    .single();
+  if (recordError) console.error('Razorpay webhook payment lookup failed', recordError);
   if (!record) return json({ ok: true, ignored: true });
 
   const status = event.event === 'payment.captured' ? 'captured' : event.event === 'payment.failed' ? 'failed' : payment.status;
-  await supabase.from('payments').update({
+  const { error: paymentError } = await supabase.from('payments').update({
     provider_payment_id: payment.id,
     status,
+    signature_verified: status === 'captured',
     raw_payload: event,
   }).eq('id', record.id);
+  if (paymentError) {
+    console.error('Razorpay webhook payment update failed', paymentError);
+    return json({ error: 'Payment update failed' }, 500);
+  }
 
   if (status === 'captured') {
-    const { data: order } = await supabase.from('orders').select('data').eq('id', record.order_id).single();
-    await supabase.from('orders').update({
+    const { data: order, error: orderReadError } = await supabase
+      .from('orders')
+      .select('data')
+      .eq('id', record.order_id)
+      .single();
+    if (orderReadError || !order) {
+      console.error('Razorpay webhook order lookup failed', orderReadError);
+      return json({ error: 'Order lookup failed' }, 500);
+    }
+
+    const updatedAt = new Date().toISOString();
+    const { error: orderUpdateError } = await supabase.from('orders').update({
       data: {
         ...(order?.data || {}),
         transactionId: payment.id,
+        razorpayPaymentId: payment.id,
+        razorpayOrderId: orderId,
+        paymentStatus: 'Paid',
         paymentMethod: 'Razorpay',
         orderStatus: 'Verified',
-        updatedAt: new Date().toISOString(),
+        updatedAt,
       },
+      updated_at: updatedAt,
     }).eq('id', record.order_id);
+    if (orderUpdateError) {
+      console.error('Razorpay webhook order update failed', orderUpdateError);
+      return json({ error: 'Order update failed' }, 500);
+    }
   }
 
   return json({ ok: true });
