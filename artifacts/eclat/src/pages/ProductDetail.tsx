@@ -414,7 +414,7 @@ export default function ProductDetail() {
                 "Gold does not remember who wore it last. But the women who wore it — they remember everything."
               </p>
               <p className="text-[#C59B62] text-xs uppercase tracking-[0.3em] mb-8">
-                — Thealankar, Chennai, Tamil Nadu
+                — Thealankar, Coimbatore, Tamil Nadu
               </p>
               <Link href="/shop">
                 <span className="inline-block px-8 py-3 border border-[#C59B62] text-[#C59B62] text-xs uppercase tracking-[0.2em] hover:bg-[#C59B62] hover:text-white transition-colors duration-300 cursor-pointer">
