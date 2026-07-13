@@ -15,7 +15,7 @@ export default function Footer() {
               Born from a desire for grace in every detail, crafting pieces for the woman who moves through the world with quiet confidence.
             </p>
             <div className="flex gap-4">
-              <a href="https://www.instagram.com/thealankar.in?igsh=MWJybzY5ODI1eTkxaA==" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border border-background/20 flex items-center justify-center hover:bg-background hover:text-foreground transition-colors">
+              <a href="https://www.instagram.com/thealankar_jewellery?igsh=dDJnb2lteDNhcGc5" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border border-background/20 flex items-center justify-center hover:bg-background hover:text-foreground transition-colors">
                 <Instagram className="w-4 h-4" />
               </a>
               <a href="https://wa.me/919488792660" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full border border-background/20 flex items-center justify-center hover:bg-background hover:text-foreground transition-colors">
