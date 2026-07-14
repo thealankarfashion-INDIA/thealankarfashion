@@ -3,7 +3,13 @@ import { useCallback, useEffect } from "react";
 import { useStoreData } from "../context/StoreDataContext";
 
 export default function useStoreProducts(enabled = true) {
-  const { products, productsLoading, ensureProductsLoaded } = useStoreData();
+  const {
+    products,
+    productsLoading,
+    productsSource,
+    productsError,
+    ensureProductsLoaded,
+  } = useStoreData();
 
   useEffect(() => {
     if (!enabled) return;
@@ -14,5 +20,11 @@ export default function useStoreProducts(enabled = true) {
     ensureProductsLoaded();
   }, [ensureProductsLoaded]);
 
-  return { products, loading: productsLoading, error: null, retry };
+  return {
+    products,
+    loading: productsLoading,
+    source: productsSource,
+    error: productsError,
+    retry,
+  };
 }

@@ -7,6 +7,8 @@ import type { Product, Offer, MainBanner } from '../lib/types';
 interface StoreDataContextType {
   products: Product[];
   productsLoading: boolean;
+  productsSource: "database" | "seed" | "none";
+  productsError: string | null;
   ensureProductsLoaded: () => void;
   offers: Offer[];
   offersLoading: boolean;
@@ -19,6 +21,8 @@ const StoreDataContext = createContext<StoreDataContextType | null>(null);
 export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [productsSource, setProductsSource] = useState<"database" | "seed" | "none">("none");
+  const [productsError, setProductsError] = useState<string | null>(null);
   const [productsRequested, setProductsRequested] = useState(false);
 
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -112,6 +116,8 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           if (arr.length > 0) {
             if (!active) return;
             setProducts(sortByCreatedAtDesc(arr));
+            setProductsSource("database");
+            setProductsError(null);
             setProductsLoading(false);
             return;
           }
@@ -119,6 +125,8 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           void loadStoreSeed().then((seed) => {
             if (!active) return;
             setProducts(sortByCreatedAtDesc(seed.products || []));
+            setProductsSource("seed");
+            setProductsError(null);
             setProductsLoading(false);
           });
         },
@@ -127,6 +135,8 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           void loadStoreSeed().then((seed) => {
             if (!active) return;
             setProducts(sortByCreatedAtDesc(seed.products || []));
+            setProductsSource("seed");
+            setProductsError(err instanceof Error ? err.message : "Could not load saved products.");
             setProductsLoading(false);
           });
         }
@@ -136,6 +146,8 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
       void loadStoreSeed().then((seed) => {
         if (!active) return;
         setProducts(sortByCreatedAtDesc(seed.products || []));
+        setProductsSource("seed");
+        setProductsError(err instanceof Error ? err.message : "Could not connect to the product database.");
         setProductsLoading(false);
       });
     }
@@ -236,6 +248,8 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
       value={{
         products,
         productsLoading,
+        productsSource,
+        productsError,
         ensureProductsLoaded,
         offers,
         offersLoading,

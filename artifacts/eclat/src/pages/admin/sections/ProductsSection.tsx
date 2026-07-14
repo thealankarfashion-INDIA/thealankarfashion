@@ -45,7 +45,10 @@ interface ProductForm {
 const empty: ProductForm = { name: "", sku: "", originalPrice: 0, discountPercent: 0, discountAmount: 0, category: "", brand: "", description: "", isNew: false, displayOrder: 0, stockQuantity: 100, whatsInTheBox: "", variants: ["Single"], youtubeUrls: [""], images: [], badge: "" };
 
 export function ProductsSection() {
-  const { products, loading } = useStoreProducts();
+  const { products: storeProducts, loading, source, error } = useStoreProducts();
+  // The public shop can use the bundled seed catalogue as an offline fallback.
+  // Admin must only manage records that actually exist in Supabase.
+  const products = source === "database" ? storeProducts : [];
   const { categories } = useStoreCategories();
   const { brands } = useStoreBrands();
   const [search, setSearch] = useState("");
@@ -152,6 +155,13 @@ export function ProductsSection() {
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8E5E4F]/40" />
         <input type="text" placeholder="Search products..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] placeholder-[#8E5E4F]/30 outline-none focus:border-[#B47A67] transition-colors" />
       </div>
+      {source === "seed" && (
+        <div className="mb-5 rounded-xl border border-[#E8D8D1] bg-[#F7F1EE] px-4 py-3 text-sm text-[#8E5E4F]">
+          {error
+            ? "Saved products could not be loaded from Supabase. Older catalogue products are hidden from admin."
+            : "No products are currently saved in Supabase. Older catalogue products are hidden from admin."}
+        </div>
+      )}
       <div className="bg-white border border-[#E8D8D1] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
