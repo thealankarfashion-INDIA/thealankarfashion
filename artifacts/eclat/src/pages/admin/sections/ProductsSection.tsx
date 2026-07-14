@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Edit2, Trash2, Search, X, Check } from "lucide-react";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, writeBatch, query } from "@/lib/supabaseStore";
 import { getDB } from "@/lib/supabase";
+import { getStorageInstance, ref, uploadBytes, getDownloadURL } from "@/lib/supabaseStorage";
 import useStoreProducts from "@/hooks/useStoreProducts";
 import useStoreCategories from "@/hooks/useStoreCategories";
 import useStoreBrands from "@/hooks/useStoreBrands";
@@ -33,6 +34,23 @@ function dataURLtoBlob(dataurl: string) {
   return new Blob([u8arr], { type: mime });
 }
 
+async function uploadProductImages(images: string[], sku: string): Promise<string[]> {
+  const storage = getStorageInstance();
+  const folder = (sku || "product").replace(/[^a-zA-Z0-9_-]/g, "-").toLowerCase();
+
+  return Promise.all(images.map(async (image, index) => {
+    if (!image.startsWith("data:")) return image;
+
+    const blob = dataURLtoBlob(image);
+    const storageRef = ref(
+      storage,
+      `products/${folder}/${Date.now()}-${index}-${crypto.randomUUID()}.jpg`
+    );
+    const uploaded = await uploadBytes(storageRef, blob);
+    return getDownloadURL(uploaded);
+  }));
+}
+
 function generateUniqueSku() {
   return `ECL-${Math.random().toString(36).substring(2, 7).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
@@ -57,6 +75,8 @@ export function ProductsSection() {
   const [form, setForm] = useState<ProductForm>(empty);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveStage, setSaveStage] = useState("");
+  const [imageUploadsPending, setImageUploadsPending] = useState(0);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
@@ -85,13 +105,36 @@ export function ProductsSection() {
     setEditId(p.id); setModalOpen(true);
   };
 
+  const addProductImage = async (file: File) => {
+    setImageUploadsPending(count => count + 1);
+    try {
+      const base64 = await resizeImage(file);
+      const [imageUrl] = await uploadProductImages([base64], form.sku || "product");
+      setForm(prev => ({ ...prev, images: [...prev.images, imageUrl] }));
+    } catch (err) {
+      console.error("Failed to upload product image:", err);
+      const message = err instanceof Error ? err.message : "Please try again.";
+      alert(`Failed to upload image. ${message}`);
+    } finally {
+      setImageUploadsPending(count => Math.max(0, count - 1));
+    }
+  };
+
   const save = async () => {
     if (!form.name) return;
+    if (imageUploadsPending > 0) {
+      alert("Please wait for the product image upload to finish.");
+      return;
+    }
     setSaving(true);
+    setSaveStage("Uploading images...");
     try {
       const db = getDB();
       const calculatedPrice = Math.max(0, form.originalPrice - form.discountAmount);
       const finalSku = form.sku || `SKU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const storedImages = await uploadProductImages(form.images, finalSku);
+      setForm(prev => ({ ...prev, images: storedImages }));
+      setSaveStage("Saving product...");
       const data: any = { 
         name: form.name, 
         sku: finalSku,
@@ -106,8 +149,8 @@ export function ProductsSection() {
         displayOrder: Number(form.displayOrder), 
         whatsInTheBox: form.whatsInTheBox ? form.whatsInTheBox.split('\n').map(s => s.trim()).filter(Boolean) : [], 
         youtubeUrls: form.youtubeUrls.filter(Boolean),
-        image: form.images[0] || "", 
-        images: form.images, 
+        image: storedImages[0] || "", 
+        images: storedImages, 
         sizes: form.variants, 
         variants: form.variants, 
         badge: form.badge || (form.isNew ? 'New' : ''), 
@@ -118,8 +161,13 @@ export function ProductsSection() {
       if (editId) { await updateDoc(doc(db, "products", editId), data); }
       else { data.createdAt = serverTimestamp(); await addDoc(collection(db, "products"), data); }
       setModalOpen(false);
-    } catch (err) { console.error('Failed to save product:', err); alert('Failed to save product.'); }
+    } catch (err) {
+      console.error('Failed to save product:', err);
+      const message = err instanceof Error ? err.message : 'Please try again.';
+      alert(`Failed to save product. ${message}`);
+    }
     setSaving(false);
+    setSaveStage("");
   };
 
   const remove = async (id: string) => { try { await deleteDoc(doc(getDB(), "products", id)); } catch (err) { console.error(err); } setDeleteId(null); };
@@ -236,13 +284,12 @@ export function ProductsSection() {
                 <div className="flex items-center justify-between">
                   <label className="block text-xs tracking-wider uppercase text-[#8E5E4F]/50">Product Images</label>
                   <label className="cursor-pointer text-[#B47A67] text-xs font-bold hover:underline flex items-center gap-1">
-                    <Plus className="w-3 h-3" /> Add Image
-                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
+                    {imageUploadsPending > 0 ? <div className="w-3 h-3 border-2 border-[#B47A67]/30 border-t-[#B47A67] rounded-full animate-spin" /> : <Plus className="w-3 h-3" />}
+                    {imageUploadsPending > 0 ? "Uploading image..." : "Add Image"}
+                    <input type="file" accept="image/*" disabled={imageUploadsPending > 0} className="hidden" onChange={async e => {
                       const file = e.target.files?.[0];
-                      if (file) {
-                        const base64 = await resizeImage(file);
-                        setForm(prev => ({ ...prev, images: [...prev.images, base64] }));
-                      }
+                      if (file) await addProductImage(file);
+                      e.target.value = "";
                     }} />
                   </label>
                 </div>
@@ -297,7 +344,7 @@ export function ProductsSection() {
             </div>
             <div className="flex gap-3 p-6 border-t border-[#E8D8D1]">
               <button onClick={() => setModalOpen(false)} className="flex-1 py-3 border border-[#E8D8D1] text-[#8E5E4F]/60 rounded-xl text-sm hover:border-[#B47A67] transition-colors">Cancel</button>
-              <button onClick={save} disabled={saving} className="flex-1 py-3 bg-[#B47A67] text-white rounded-xl text-sm font-medium hover:bg-[#A86F5C] transition-colors flex items-center justify-center gap-2 disabled:opacity-60">{saving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Check className="h-4 w-4" /> {editId ? "Save Changes" : "Add Product"}</>}</button>
+              <button onClick={save} disabled={saving || imageUploadsPending > 0} className="flex-1 py-3 bg-[#B47A67] text-white rounded-xl text-sm font-medium hover:bg-[#A86F5C] transition-colors flex items-center justify-center gap-2 disabled:opacity-60">{saving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>{saveStage}</span></> : <><Check className="h-4 w-4" /> {imageUploadsPending > 0 ? "Uploading Image" : editId ? "Save Changes" : "Add Product"}</>}</button>
             </div>
           </motion.div>
         </motion.div>
