@@ -166,7 +166,10 @@ export async function getOrder(orderId: string): Promise<Order | null> {
 }
 
 /** Real-time listener for all orders (admin) */
-export function subscribeToOrders(callback: (orders: Order[]) => void): () => void {
+export function subscribeToOrders(
+  callback: (orders: Order[]) => void,
+  onError?: (error: unknown) => void
+): () => void {
   const db = getDB();
   const q = query(collection(db, ORDERS_COLLECTION), orderBy('createdAt', 'desc'));
   return onSnapshot(q, (snapshot) => {
@@ -175,6 +178,9 @@ export function subscribeToOrders(callback: (orders: Order[]) => void): () => vo
       ...d.data(),
     })) as Order[];
     callback(orders);
+  }, (error) => {
+    console.error("Error in subscribeToOrders:", error);
+    onError?.(error);
   });
 }
 

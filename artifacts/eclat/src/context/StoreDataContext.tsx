@@ -35,11 +35,19 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
     setProductsRequested(true);
   }, []);
 
-  const sortByCreatedAtDesc = <T extends { createdAt?: any }>(items: T[]) =>
+  const createdAtValue = (value: any) =>
+    value?.toMillis?.() || (value ? new Date(value as any).getTime() : 0);
+
+  const displayOrderValue = (value: any) => {
+    const order = Number(value);
+    return Number.isFinite(order) && order > 0 ? order : 99999;
+  };
+
+  const sortByDisplayOrder = <T extends { createdAt?: any; displayOrder?: any }>(items: T[]) =>
     [...items].sort((a, b) => {
-      const timeA = a.createdAt?.toMillis?.() || (a.createdAt ? new Date(a.createdAt as any).getTime() : 0);
-      const timeB = b.createdAt?.toMillis?.() || (b.createdAt ? new Date(b.createdAt as any).getTime() : 0);
-      return timeB - timeA;
+      const orderDiff = displayOrderValue(a.displayOrder) - displayOrderValue(b.displayOrder);
+      if (orderDiff !== 0) return orderDiff;
+      return createdAtValue(b.createdAt) - createdAtValue(a.createdAt);
     });
 
   const mapProduct = (id: string, data: any): Product => ({
@@ -90,7 +98,7 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
     youtubeVideoId: data.youtubeVideoId ?? "",
     createdAt: data.createdAt ?? null,
     updatedAt: data.updatedAt ?? null,
-    displayOrder: data.displayOrder ?? 0,
+    displayOrder: Number(data.displayOrder ?? 0),
     collection: data.collection ?? "",
     fabric: data.fabric ?? "",
     fit: data.fit ?? "",
@@ -108,14 +116,14 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       const db = getDB();
-      const qProducts = query(collection(db, 'products'));
+      const qProducts = query(collection(db, 'products'), orderBy('displayOrder', 'asc'));
       unsubProducts = onSnapshot(
         qProducts,
         (snap) => {
           const arr = snap.docs.map((d) => mapProduct(d.id, d.data() as any));
           if (arr.length > 0) {
             if (!active) return;
-            setProducts(sortByCreatedAtDesc(arr));
+            setProducts(sortByDisplayOrder(arr));
             setProductsSource("database");
             setProductsError(null);
             setProductsLoading(false);
@@ -124,7 +132,7 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
 
           void loadStoreSeed().then((seed) => {
             if (!active) return;
-            setProducts(sortByCreatedAtDesc(seed.products || []));
+            setProducts(sortByDisplayOrder(seed.products || []));
             setProductsSource("seed");
             setProductsError(null);
             setProductsLoading(false);
@@ -134,7 +142,7 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
           console.error("StoreDataProvider query error (products):", err);
           void loadStoreSeed().then((seed) => {
             if (!active) return;
-            setProducts(sortByCreatedAtDesc(seed.products || []));
+            setProducts(sortByDisplayOrder(seed.products || []));
             setProductsSource("seed");
             setProductsError(err instanceof Error ? err.message : "Could not load saved products.");
             setProductsLoading(false);
@@ -145,7 +153,7 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
       console.warn("Supabase not configured in StoreDataProvider (products)", err);
       void loadStoreSeed().then((seed) => {
         if (!active) return;
-        setProducts(sortByCreatedAtDesc(seed.products || []));
+        setProducts(sortByDisplayOrder(seed.products || []));
         setProductsSource("seed");
         setProductsError(err instanceof Error ? err.message : "Could not connect to the product database.");
         setProductsLoading(false);

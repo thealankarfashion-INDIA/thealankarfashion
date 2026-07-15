@@ -22,6 +22,11 @@ type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'new';
 const filterInput = "w-full bg-[#F7F1EE] border border-[#E8D8D1] rounded-lg px-3 py-2.5 text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors";
 const filterLabel = "block text-[10px] tracking-widest uppercase text-[#8E5E4F]/50 mb-3";
 
+function displayOrderValue(value: unknown) {
+  const order = Number(value);
+  return Number.isFinite(order) && order > 0 ? order : 99999;
+}
+
 export default function Shop() {
   const searchParams = useSearch();
   const params = new URLSearchParams(searchParams);
@@ -117,9 +122,7 @@ export default function Shop() {
         case 'new': list.sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0)); break;
         default:
           list.sort((a, b) => {
-            const oa = typeof a.displayOrder === 'number' ? a.displayOrder : 99999;
-            const ob = typeof b.displayOrder === 'number' ? b.displayOrder : 99999;
-            return oa - ob;
+            return displayOrderValue(a.displayOrder) - displayOrderValue(b.displayOrder);
           });
       }
     } else {

@@ -32,8 +32,9 @@ const formatOrderAddress = (order: Order) => {
 export function OrdersSection() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<string>("payment-submitted");
+  const [filter, setFilter] = useState<string>("all");
   const [viewOrder, setViewOrder] = useState<Order | null>(null);
   const [updating, setUpdating] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -43,9 +44,25 @@ export function OrdersSection() {
 
   useEffect(() => {
     try {
-      const unsub = subscribeToOrders((list) => { setOrders(list); setLoading(false); });
+      const unsub = subscribeToOrders(
+        (list) => {
+          setOrders(list);
+          setLoadError("");
+          setLoading(false);
+        },
+        (error) => {
+          const message = error instanceof Error ? error.message : "Unable to load orders.";
+          setLoadError(message);
+          setLoading(false);
+        }
+      );
       return () => unsub();
-    } catch { setLoading(false); return undefined; }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to load orders.";
+      setLoadError(message);
+      setLoading(false);
+      return undefined;
+    }
   }, []);
 
   const filtered = orders.filter(o => {
@@ -266,6 +283,19 @@ export function OrdersSection() {
 
   if (loading) return <div className="space-y-4">{[...Array(5)].map((_, i) => <div key={i} className="h-16 bg-[#E8D8D1] rounded-xl animate-pulse" />)}</div>;
 
+  if (loadError) {
+    return (
+      <div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+          <div><h2 className="font-serif text-2xl text-[#8E5E4F]">Orders</h2><p className="text-xs text-red-500 mt-0.5">Orders could not be loaded.</p></div>
+        </div>
+        <div className="bg-white border border-red-100 rounded-2xl p-6 text-sm text-red-600">
+          {loadError}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
@@ -281,9 +311,9 @@ export function OrdersSection() {
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1"><Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8E5E4F]/40" /><input type="text" placeholder="Search orders..." value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] placeholder-[#8E5E4F]/30 outline-none focus:border-[#B47A67] transition-colors" /></div>
         <select value={filter} onChange={e => setFilter(e.target.value)} className="px-4 py-3 bg-white border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors">
+          <option value="all">All Statuses</option>
           <option value="payment-submitted">Paid / Payment Submitted</option>
           <option value="payment-completed">Payment Completed Only</option>
-          <option value="all">All Statuses</option>
           {ALL_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
@@ -324,6 +354,13 @@ export function OrdersSection() {
             </div></td>
           </motion.tr>
         ))}
+        {filtered.length === 0 && (
+          <motion.tr initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="border-b border-[#E8D8D1] last:border-0">
+            <td colSpan={6} className="px-5 py-10 text-center text-sm text-[#8E5E4F]/45">
+              {orders.length === 0 ? "No orders found." : "No orders match the current search or filter."}
+            </td>
+          </motion.tr>
+        )}
       </AnimatePresence></tbody></table></div></div>
 
       <AnimatePresence>{viewOrder && (

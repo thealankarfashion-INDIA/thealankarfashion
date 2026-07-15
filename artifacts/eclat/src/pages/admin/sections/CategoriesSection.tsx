@@ -31,7 +31,7 @@ async function resizeImage(file: File, maxWidth = 800, quality = 0.72): Promise<
 }
 
 export function CategoriesSection() {
-  const { categories, loading } = useStoreCategories();
+  const { categories, loading, retry } = useStoreCategories();
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", slug: "", image: "", displayOrder: 0 });
@@ -54,11 +54,12 @@ export function CategoriesSection() {
       const data: any = { name: form.name, slug: form.slug, image: imageUrl, displayOrder: Number(form.displayOrder), updatedAt: serverTimestamp() };
       if (editId) { await updateDoc(doc(db, "categories", editId), data); } else { data.createdAt = serverTimestamp(); data.count = 0; await addDoc(collection(db, "categories"), data); }
       setModalOpen(false);
+      retry();
     } catch (err) { console.error("Failed to save category:", err); alert("Failed to save."); }
     setSaving(false);
   };
 
-  const remove = async (id: string) => { try { await deleteDoc(doc(getDB(), "categories", id)); } catch (err) { console.error(err); } setDeleteId(null); };
+  const remove = async (id: string) => { try { await deleteDoc(doc(getDB(), "categories", id)); retry(); } catch (err) { console.error(err); } setDeleteId(null); };
 
   const handleDeleteAll = async () => {
     setIsBulkDeleting(true);
@@ -69,6 +70,7 @@ export function CategoriesSection() {
         const batch = writeBatch(db);
         snap.docs.forEach(d => batch.delete(d.ref));
         await batch.commit();
+        retry();
       }
     } catch (e) { console.error(e); }
     finally { setIsBulkDeleting(false); setBulkDeleteOpen(false); }
