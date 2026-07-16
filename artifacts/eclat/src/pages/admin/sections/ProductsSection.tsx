@@ -8,6 +8,7 @@ import useStoreProducts from "@/hooks/useStoreProducts";
 import useStoreCategories from "@/hooks/useStoreCategories";
 import useStoreBrands from "@/hooks/useStoreBrands";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
+import { normalizeDisplayOrder } from "@/lib/displayOrder";
 
 async function resizeImage(file: File, maxWidth = 900, quality = 0.72): Promise<string> {
   const reader = new FileReader();
@@ -158,8 +159,10 @@ export function ProductsSection() {
         inStock: Number(form.stockQuantity) > 0,
         updatedAt: serverTimestamp() 
       };
+      let savedId = editId;
       if (editId) { await updateDoc(doc(db, "products", editId), data); }
-      else { data.createdAt = serverTimestamp(); await addDoc(collection(db, "products"), data); }
+      else { data.createdAt = serverTimestamp(); savedId = (await addDoc(collection(db, "products"), data)).id; }
+      if (savedId) await normalizeDisplayOrder("products", savedId, data.displayOrder);
       setModalOpen(false);
     } catch (err) {
       console.error('Failed to save product:', err);

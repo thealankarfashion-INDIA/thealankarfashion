@@ -1,1 +1,0 @@
-const a=(...e)=>e.find(g=>typeof g=="string"&&g.trim().length>0)?.trim()||"",t=e=>a(e?.bannerImage,e?.backgroundImage,e?.bgImage,e?.coverImage,e?.banner,e?.image,e?.imageUrl),m=e=>a(e?.icon,t(e));export{t as a,m as g};

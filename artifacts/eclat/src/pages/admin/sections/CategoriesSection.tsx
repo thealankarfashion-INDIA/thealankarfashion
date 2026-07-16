@@ -5,6 +5,7 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs
 import { getDB } from "@/lib/supabase";
 import useStoreCategories from "@/hooks/useStoreCategories";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
+import { normalizeDisplayOrder } from "@/lib/displayOrder";
 
 async function resizeImage(file: File, maxWidth = 800, quality = 0.72): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -52,7 +53,9 @@ export function CategoriesSection() {
         imageUrl = await resizeImage(imageFile);
       }
       const data: any = { name: form.name, slug: form.slug, image: imageUrl, displayOrder: Number(form.displayOrder), updatedAt: serverTimestamp() };
-      if (editId) { await updateDoc(doc(db, "categories", editId), data); } else { data.createdAt = serverTimestamp(); data.count = 0; await addDoc(collection(db, "categories"), data); }
+      let savedId = editId;
+      if (editId) { await updateDoc(doc(db, "categories", editId), data); } else { data.createdAt = serverTimestamp(); data.count = 0; savedId = (await addDoc(collection(db, "categories"), data)).id; }
+      if (savedId) await normalizeDisplayOrder("categories", savedId, data.displayOrder);
       setModalOpen(false);
       retry();
     } catch (err) { console.error("Failed to save category:", err); alert("Failed to save."); }
