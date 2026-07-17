@@ -33,7 +33,7 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { products, ensureProductsLoaded } = useStoreData();
+  const { products, productsSource, ensureProductsLoaded } = useStoreData();
 
   useEffect(() => {
     try {
@@ -50,7 +50,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (items.length > 0 && items.some((item) => !item.image)) {
+    if (items.length > 0) {
       ensureProductsLoaded();
     }
   }, [items, ensureProductsLoaded]);
@@ -60,20 +60,48 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     setItems((prev) => {
       let changed = false;
-      const hydrated = prev.map((item) => {
-        if (item.image) return item;
-
+      const hydrated = prev.flatMap((item) => {
         const product = products.find((p) => p.id === item.productId);
+        if (!product) {
+          if (productsSource === "database") changed = true;
+          return productsSource === "database" ? [] : [item];
+        }
+
         const image = product?.image || product?.images?.[0] || '';
-        if (!image) return item;
+        const maxQuantity = product?.stockQuantity;
+        if (product.inStock === false || (maxQuantity !== undefined && maxQuantity <= 0)) {
+          changed = true;
+          return [];
+        }
+
+        const quantity = maxQuantity !== undefined
+          ? Math.min(item.quantity, Math.max(0, maxQuantity))
+          : item.quantity;
+        if (
+          item.image === image &&
+          item.maxQuantity === maxQuantity &&
+          item.quantity === quantity &&
+          item.price === Number(product.price) &&
+          item.name === product.name
+        ) {
+          return [item];
+        }
 
         changed = true;
-        return { ...item, image };
+        return [{
+          ...item,
+          name: product.name || item.name,
+          price: Number(product.price) || item.price,
+          image,
+          sku: product.sku || item.sku,
+          maxQuantity,
+          quantity,
+        }];
       });
 
       return changed ? hydrated : prev;
     });
-  }, [products, items.length]);
+  }, [products, productsSource, items.length]);
 
   useEffect(() => {
     try {

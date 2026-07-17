@@ -40,7 +40,10 @@ Deno.serve(async (req) => {
   });
   if (stockError) {
     console.error('Failed to reserve order stock', stockError);
-    return json({ error: stockError.message || 'Unable to reserve product stock' }, 409);
+    const message = stockError.message?.includes('was not found')
+      ? 'Some items in your cart are no longer available. Please refresh and add the current product again.'
+      : stockError.message || 'Unable to reserve product stock';
+    return json({ error: message }, 409);
   }
 
   const basic = btoa(`${keyId}:${keySecret}`);
