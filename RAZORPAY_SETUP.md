@@ -8,7 +8,7 @@ Set these in Supabase, not in Vite:
 supabase secrets set RAZORPAY_KEY_ID=...
 supabase secrets set RAZORPAY_KEY_SECRET=...
 supabase secrets set RAZORPAY_WEBHOOK_SECRET=...
-supabase secrets set SUPABASE_URL=https://rcxrydarrnyuasussdcn.supabase.co
+supabase secrets set SUPABASE_URL=https://nevrcoezrzolxspfosla.supabase.co
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
@@ -17,14 +17,18 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
 Source code is present but not deployed:
 
 - `supabase/functions/create-razorpay-order`
+- `supabase/functions/create-razorpay-payment-link`
 - `supabase/functions/verify-razorpay-payment`
+- `supabase/functions/verify-razorpay-payment-link`
 - `supabase/functions/razorpay-webhook`
 
 Deploy later only after approval:
 
 ```bash
 supabase functions deploy create-razorpay-order
+supabase functions deploy create-razorpay-payment-link
 supabase functions deploy verify-razorpay-payment
+supabase functions deploy verify-razorpay-payment-link
 supabase functions deploy razorpay-webhook
 ```
 
@@ -32,7 +36,7 @@ supabase functions deploy razorpay-webhook
 
 Webhook URL format:
 
-`https://rcxrydarrnyuasussdcn.supabase.co/functions/v1/razorpay-webhook`
+`https://nevrcoezrzolxspfosla.supabase.co/functions/v1/razorpay-webhook`
 
 Enable at least:
 
