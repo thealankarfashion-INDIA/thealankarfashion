@@ -15,6 +15,7 @@ export async function uploadBytes(storageRef: { path: string }, file: Blob) {
   const path = storageRef.path.replace(/^payment-screenshots\//, '');
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     upsert: false,
+    cacheControl: '31536000',
     contentType: file.type || 'application/octet-stream',
   });
   if (error) throw error;
