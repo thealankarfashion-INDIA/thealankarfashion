@@ -5,6 +5,7 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs
 import { getDB } from "@/lib/supabase";
 import useStoreMainBanners from "@/hooks/useStoreMainBanners";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
+import { uploadImageDataUrl } from "@/lib/supabaseStorage";
 
 async function resizeImage(file: File, maxWidth = 1200, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -48,7 +49,9 @@ export function MainBannersSection() {
     setSaving(true);
     try {
       const db = getDB();
-      const data: any = { desktopImage: form.desktopImage, mobileImage: form.mobileImage, link: form.link, order: Number(form.order), active: form.active, updatedAt: serverTimestamp() };
+      const desktopImage = await uploadImageDataUrl(form.desktopImage, `banners/desktop-${Date.now()}-${crypto.randomUUID()}.jpg`);
+      const mobileImage = await uploadImageDataUrl(form.mobileImage, `banners/mobile-${Date.now()}-${crypto.randomUUID()}.jpg`);
+      const data: any = { desktopImage, mobileImage, link: form.link, order: Number(form.order), active: form.active, updatedAt: serverTimestamp() };
       if (editId) { await updateDoc(doc(db, "mainBanners", editId), data); } else { data.createdAt = serverTimestamp(); await addDoc(collection(db, "mainBanners"), data); }
       setModalOpen(false);
     } catch (err) { console.error(err); alert("Failed to save banner."); }
@@ -89,10 +92,10 @@ export function MainBannersSection() {
         {mainBanners.map((banner: any, i: number) => (
           <motion.div key={banner.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ delay: i * 0.05 }} className={`bg-white border border-[#E8D8D1] rounded-2xl p-5 flex items-center gap-5 ${!banner.active ? 'opacity-50' : ''}`}>
             <div className="h-20 w-32 rounded-xl bg-[#F7F1EE] flex items-center justify-center flex-shrink-0 overflow-hidden border border-[#E8D8D1]/50">
-              {banner.desktopImage ? <img src={banner.desktopImage} alt="Desktop View" className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-[#8E5E4F]/30" />}
+              {banner.desktopImage ? <img src={banner.desktopImage} alt="Desktop View" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-[#8E5E4F]/30" />}
             </div>
             <div className="h-20 w-12 rounded-xl bg-[#F7F1EE] flex items-center justify-center flex-shrink-0 overflow-hidden border border-[#E8D8D1]/50">
-              {banner.mobileImage ? <img src={banner.mobileImage} alt="Mobile View" className="w-full h-full object-cover" /> : <ImageIcon className="h-4 w-4 text-[#8E5E4F]/30" />}
+              {banner.mobileImage ? <img src={banner.mobileImage} alt="Mobile View" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <ImageIcon className="h-4 w-4 text-[#8E5E4F]/30" />}
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-sm text-[#8E5E4F]">Banner {banner.order}</h3>
@@ -119,7 +122,7 @@ export function MainBannersSection() {
                 <label className="block text-xs tracking-wider uppercase text-[#8E5E4F]/50 mb-2">Desktop Image (Landscape)</label>
                 <div className="flex flex-col gap-3">
                   <div className="h-28 w-full bg-[#F7F1EE] border border-[#E8D8D1] rounded-xl flex items-center justify-center overflow-hidden">
-                    {form.desktopImage ? <img src={form.desktopImage} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="h-6 w-6 text-[#8E5E4F]/30" />}
+                    {form.desktopImage ? <img src={form.desktopImage} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <ImageIcon className="h-6 w-6 text-[#8E5E4F]/30" />}
                   </div>
                   <label className="cursor-pointer">
                     <input type="file" className="hidden" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if (file) { const base64 = await resizeImage(file, 1600); setForm(prev => ({ ...prev, desktopImage: base64 })); } }} />
@@ -133,7 +136,7 @@ export function MainBannersSection() {
                 <label className="block text-xs tracking-wider uppercase text-[#8E5E4F]/50 mb-2">Mobile Image (Portrait)</label>
                 <div className="flex flex-col gap-3">
                   <div className="h-40 w-24 bg-[#F7F1EE] border border-[#E8D8D1] rounded-xl flex items-center justify-center overflow-hidden mx-auto">
-                    {form.mobileImage ? <img src={form.mobileImage} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="h-6 w-6 text-[#8E5E4F]/30" />}
+                    {form.mobileImage ? <img src={form.mobileImage} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <ImageIcon className="h-6 w-6 text-[#8E5E4F]/30" />}
                   </div>
                   <label className="cursor-pointer">
                     <input type="file" className="hidden" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if (file) { const base64 = await resizeImage(file, 800); setForm(prev => ({ ...prev, mobileImage: base64 })); } }} />

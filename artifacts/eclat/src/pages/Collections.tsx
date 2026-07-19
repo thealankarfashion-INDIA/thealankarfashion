@@ -185,7 +185,7 @@ export default function Collections() {
                     <div className={`w-[48px] h-[48px] md:w-10 md:h-10 rounded-full overflow-hidden border-2 p-0.5 flex-shrink-0 transition-colors ${isActive ? 'border-[#B47A67]' : 'border-transparent'}`}>
                       <div className="w-full h-full rounded-full overflow-hidden bg-gray-100 flex items-center justify-center">
                         {category.image ? (
-                          <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                          <img src={category.image} alt={category.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-[10px] font-bold text-gray-400">
                             {category.name.substring(0, 2).toUpperCase()}
@@ -236,7 +236,7 @@ export default function Collections() {
                     <div className="flex items-center gap-2 md:gap-3 mb-4">
                       <div className="w-7 h-7 md:w-9 md:h-9 rounded-full overflow-hidden border border-gray-200 shrink-0">
                         {category.image ? (
-                          <img src={category.image} alt={category.name} className="w-full h-full object-cover" />
+                          <img src={category.image} alt={category.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full bg-[#E8D8D1] flex items-center justify-center text-[9px] font-bold text-[#8E5E4F]">
                             {category.name.substring(0, 2).toUpperCase()}
@@ -273,6 +273,8 @@ export default function Collections() {
                                     <img
                                       src={product.image || product.images?.[0] || ''}
                                       alt={product.name}
+                                      loading="lazy"
+                                      decoding="async"
                                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                     />
                                     <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-[#B47A67] text-white text-[7px] md:text-[9px] font-bold px-1 md:px-1.5 py-0.5 rounded flex items-center gap-0.5 whitespace-nowrap">
@@ -311,6 +313,8 @@ export default function Collections() {
                                     <img
                                       src={product.image || product.images?.[0] || ''}
                                       alt={product.name}
+                                      loading="lazy"
+                                      decoding="async"
                                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                     />
                                   </div>

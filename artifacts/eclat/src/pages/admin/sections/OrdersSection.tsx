@@ -406,13 +406,13 @@ export function OrdersSection() {
                   <p className="text-sm text-[#8E5E4F] leading-relaxed">{viewOrder.orderNote}</p>
                 </div>
               )}
-              {viewOrder.paymentScreenshotUrl && <div><p className="text-[9px] tracking-widest uppercase text-[#8E5E4F]/40 mb-1">Payment Screenshot</p><img src={viewOrder.paymentScreenshotUrl} alt="Payment proof" className="max-h-40 rounded-lg border border-[#E8D8D1]" /></div>}
+              {viewOrder.paymentScreenshotUrl && <div><p className="text-[9px] tracking-widest uppercase text-[#8E5E4F]/40 mb-1">Payment Screenshot</p><img src={viewOrder.paymentScreenshotUrl} alt="Payment proof" loading="lazy" decoding="async" className="max-h-40 rounded-lg border border-[#E8D8D1]" /></div>}
               <div className="border-t border-[#E8D8D1] pt-4"><p className="text-[9px] tracking-widest uppercase text-[#8E5E4F]/40 mb-3">Items ({viewOrder.items?.length || 0})</p>
                 <div className="space-y-3">
                   {viewOrder.items?.map((item, i) => (
                     <div key={i} className="flex items-center gap-3 py-1">
                       <div className="w-12 h-12 rounded-lg bg-[#F7F1EE] overflow-hidden border border-[#E8D8D1] shrink-0">
-                        {item.image ? <img src={item.image} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#8E5E4F]/20"><Truck className="w-5 h-5" /></div>}
+                        {item.image ? <img src={item.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[#8E5E4F]/20"><Truck className="w-5 h-5" /></div>}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-[#8E5E4F] truncate">{item.name}</p>

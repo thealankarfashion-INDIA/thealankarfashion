@@ -56,7 +56,7 @@ function SuggestionRow({
       {/* Thumbnail */}
       <div className="w-10 h-10 rounded-xl bg-[#F7F1EE] border border-[#E8D8D1] overflow-hidden shrink-0 flex items-center justify-center">
         {img ? (
-          <img src={img} alt={product.name} className="w-full h-full object-cover" />
+          <img src={img} alt={product.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
         ) : (
           <Sparkles className="w-4 h-4 text-[#B47A67]/40" />
         )}
@@ -346,7 +346,7 @@ export default function SearchOverlay({
                           >
                             <div className="w-full aspect-square max-w-[100px] rounded-2xl bg-[#FBF6F3] border border-[#E8D8D1] overflow-hidden flex items-center justify-center group-hover:border-[#B47A67]/40 transition-all shadow-sm">
                               {cat.image ? (
-                                <img src={cat.image} alt={cat.name} className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:scale-105 transition-transform duration-300" />
+                                <img src={cat.image} alt={cat.name} loading="lazy" decoding="async" className="w-full h-full object-cover mix-blend-multiply opacity-90 group-hover:scale-105 transition-transform duration-300" />
                               ) : (
                                 <Sparkles className="w-6 h-6 text-[#B47A67]/40" />
                               )}

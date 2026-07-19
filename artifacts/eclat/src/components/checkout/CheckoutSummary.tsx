@@ -35,7 +35,7 @@ export default function CheckoutSummary({
         {items.map(item => (
           <div key={`${item.productId}-${item.color}-${item.size}`} className="flex gap-3 group">
             <div className="relative w-14 h-18 flex-shrink-0 rounded-sm overflow-hidden bg-[#F7F1EE]">
-              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+              <img src={item.image} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
               <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[#8E5E4F] text-white text-[10px] rounded-full flex items-center justify-center font-medium">{item.quantity}</span>
             </div>
             <div className="flex-1 min-w-0">

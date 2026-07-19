@@ -156,7 +156,7 @@ export default function Cart() {
                 <div className="flex gap-4">
                   {/* Product Image */}
                   <div className="w-20 h-24 shrink-0 bg-[#FBF6F3] rounded-lg overflow-hidden border border-[#E8D8D1]/30">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={item.image} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </div>
 
                   {/* Product Info */}

@@ -5,6 +5,7 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs
 import { getDB } from "@/lib/supabase";
 import useStoreBrands from "@/hooks/useStoreBrands";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
+import { uploadImageDataUrl } from "@/lib/supabaseStorage";
 
 async function resizeImage(file: File, maxWidth = 800, quality = 0.72): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -49,7 +50,8 @@ export function BrandsSection() {
     try {
       const db = getDB(); let imageUrl = form.image;
       if (imageFile) {
-        imageUrl = await resizeImage(imageFile);
+        const resized = await resizeImage(imageFile);
+        imageUrl = await uploadImageDataUrl(resized, `brands/${Date.now()}-${crypto.randomUUID()}.jpg`);
       }
       const data: any = { name: form.name, slug: form.slug || form.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), tagline: form.tagline, image: imageUrl, bg: form.bg, displayOrder: Number(form.displayOrder), updatedAt: serverTimestamp() };
       if (editId) { await updateDoc(doc(db, "brands", editId), data); } else { data.createdAt = serverTimestamp(); await addDoc(collection(db, "brands"), data); }
@@ -91,7 +93,7 @@ export function BrandsSection() {
           <motion.div key={brand.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.07 }} className="bg-white border border-[#E8D8D1] rounded-2xl overflow-hidden hover:shadow-md transition-shadow" style={{ borderLeftColor: brand.bg || '#B47A67', borderLeftWidth: 4 }}>
             <div className="p-5 flex items-start gap-4">
               <div className="h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden" style={{ backgroundColor: brand.bg || '#F7F1EE' }}>
-                {brand.image ? <img src={brand.image} alt={brand.name} className="w-full h-full object-cover" /> : <Award className="h-6 w-6 text-[#8E5E4F]/40" />}
+                {brand.image ? <img src={brand.image} alt={brand.name} loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <Award className="h-6 w-6 text-[#8E5E4F]/40" />}
               </div>
               <div className="flex-1 min-w-0"><h3 className="font-serif text-base text-[#8E5E4F]">{brand.name}</h3>{brand.tagline && <p className="text-xs text-[#8E5E4F]/50 mt-0.5 truncate">{brand.tagline}</p>}</div>
             </div>

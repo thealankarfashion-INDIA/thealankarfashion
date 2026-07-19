@@ -16,6 +16,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   googleAuthEnabled: boolean;
   signInWithGoogle: () => Promise<void>;
+  sendEmailOtp: (email: string) => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -34,6 +35,7 @@ function toAppUser(user: SupabaseUser | null): AppUser | null {
       (user.user_metadata?.display_name as string | undefined) ||
       (user.user_metadata?.full_name as string | undefined) ||
       user.email ||
+      user.phone ||
       null,
     photoURL: (user.user_metadata?.avatar_url as string | undefined) || null,
   };
@@ -72,6 +74,7 @@ async function upsertUserDoc(user: AppUser) {
       uid: user.uid,
       displayName: user.displayName,
       email: user.email,
+      phoneNumber: user.phone,
       photoURL: user.photoURL,
       lastLoginAt: serverTimestamp(),
     },
@@ -200,6 +203,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (appUser) await upsertUserDoc(appUser);
   }, []);
 
+  const sendEmailOtp = useCallback(async (email: string) => {
+    setError(null);
+    const redirectTo = new URL(`${import.meta.env.BASE_URL}profile`, window.location.origin).toString();
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: redirectTo,
+        shouldCreateUser: true,
+      },
+    });
+    if (otpError) {
+      const message = otpError.message || 'Could not send login email. Please check the email address and try again.';
+      setError(message);
+      throw new Error(message);
+    }
+  }, []);
+
   const signUpWithEmail = useCallback(async (name: string, email: string, pass: string) => {
     setError(null);
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -235,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         googleAuthEnabled,
         signInWithGoogle,
+        sendEmailOtp,
         signInWithEmail,
         signUpWithEmail,
         logout,

@@ -6,6 +6,7 @@ import { getDB } from "@/lib/supabase";
 import { Coupon, assignCouponToUser } from "@/lib/user";
 import { getCouponBannerImage, getCouponIconImage } from "@/lib/coupons";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
+import { uploadImageDataUrl } from "@/lib/supabaseStorage";
 
 async function resizeImage(file: File, maxWidth = 400, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -139,10 +140,12 @@ export function CouponsSection() {
     setSaving(true);
     try {
       const db = getDB();
+      const iconUrl = await uploadImageDataUrl(form.icon.trim(), `coupons/icons/${Date.now()}-${crypto.randomUUID()}.jpg`);
+      const imageUrl = await uploadImageDataUrl(form.image.trim(), `coupons/banners/${Date.now()}-${crypto.randomUUID()}.jpg`);
       const data: any = {
         ...form,
-        image: form.image.trim(),
-        icon: form.icon.trim(),
+        image: imageUrl,
+        icon: iconUrl,
         updatedAt: serverTimestamp() 
       };
       if (editId) { 
@@ -261,7 +264,7 @@ export function CouponsSection() {
           {coupons.map((coupon, i) => (
             <motion.div key={coupon.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ delay: i * 0.05 }} className={`bg-white border border-[#E8D8D1] rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-5 ${!coupon.active ? 'opacity-50' : ''}`}>
               <div className="h-14 w-14 rounded-full bg-[#B47A67]/10 flex items-center justify-center flex-shrink-0 overflow-hidden border border-[#E8D8D1]">
-                {getCouponIconImage(coupon) ? <img src={getCouponIconImage(coupon)} alt="" className="w-full h-full object-cover" /> : <Gift className="h-6 w-6 text-[#B47A67]" />}
+                {getCouponIconImage(coupon) ? <img src={getCouponIconImage(coupon)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <Gift className="h-6 w-6 text-[#B47A67]" />}
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-sm text-[#8E5E4F]">{coupon.brandName}</h3>
@@ -297,7 +300,7 @@ export function CouponsSection() {
                 <label className="block text-xs tracking-wider uppercase text-[#8E5E4F]/50 mb-2">Brand Icon</label>
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 bg-[#F7F1EE] border border-[#E8D8D1] rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {form.icon ? <img src={form.icon} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-[#8E5E4F]/30" />}
+                    {form.icon ? <img src={form.icon} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-[#8E5E4F]/30" />}
                   </div>
                   <label className="flex-1 cursor-pointer">
                     <input type="file" className="hidden" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if (file) { const base64 = await resizeImage(file, 400); setForm(prev => ({ ...prev, icon: base64 })); } }} />
@@ -309,7 +312,7 @@ export function CouponsSection() {
                 <label className="block text-xs tracking-wider uppercase text-[#8E5E4F]/50 mb-2">Coupon Banner Background</label>
                 <div className="rounded-2xl overflow-hidden border border-[#E8D8D1] bg-[#F7F1EE] mb-3 aspect-[3/1]">
                   {form.image ? (
-                    <img src={form.image} alt="" className="w-full h-full object-cover" />
+                    <img src={form.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-xs text-[#8E5E4F]/40">No banner selected</div>
                   )}

@@ -6,6 +6,7 @@ import { getDB } from "@/lib/supabase";
 import useStoreOffers from "@/hooks/useStoreOffers";
 import { getOfferImage } from "@/lib/offers";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
+import { uploadImageDataUrl } from "@/lib/supabaseStorage";
 
 async function resizeImage(file: File, maxWidth = 800, quality = 0.72): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -48,7 +49,8 @@ export function OffersSection() {
     if (!form.title) return; setSaving(true);
     try {
       const db = getDB();
-      const data: any = { title: form.title, subtitle: form.subtitle, code: form.code.toUpperCase(), discount: Number(form.discount), type: form.type, minOrderAmount: Number(form.minOrderAmount), badge: form.badge, order: Number(form.order), active: form.active, image: form.image, cta: form.cta, updatedAt: serverTimestamp() };
+      const imageUrl = await uploadImageDataUrl(form.image, `offers/${Date.now()}-${crypto.randomUUID()}.jpg`);
+      const data: any = { title: form.title, subtitle: form.subtitle, code: form.code.toUpperCase(), discount: Number(form.discount), type: form.type, minOrderAmount: Number(form.minOrderAmount), badge: form.badge, order: Number(form.order), active: form.active, image: imageUrl, cta: form.cta, updatedAt: serverTimestamp() };
       if (editId) { await updateDoc(doc(db, "offers", editId), data); } else { data.createdAt = serverTimestamp(); await addDoc(collection(db, "offers"), data); }
       setModalOpen(false);
     } catch (err) { console.error(err); alert("Failed to save."); }
@@ -88,7 +90,7 @@ export function OffersSection() {
         {offers.map((offer: any, i: number) => (
           <motion.div key={offer.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ delay: i * 0.05 }} className={`bg-white border border-[#E8D8D1] rounded-2xl p-5 flex items-center gap-5 ${!offer.active ? 'opacity-50' : ''}`}>
             <div className="h-12 w-12 rounded-xl bg-[#B47A67]/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {getOfferImage(offer) ? <img src={getOfferImage(offer)} alt="" className="w-full h-full object-cover" /> : <Tag className="h-5 w-5 text-[#B47A67]" />}
+              {getOfferImage(offer) ? <img src={getOfferImage(offer)} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <Tag className="h-5 w-5 text-[#B47A67]" />}
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-medium text-sm text-[#8E5E4F]">{offer.title}</h3>
@@ -115,7 +117,7 @@ export function OffersSection() {
                 <label className="block text-xs tracking-wider uppercase text-[#8E5E4F]/50 mb-2">Offer Image</label>
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-24 bg-[#F7F1EE] border border-[#E8D8D1] rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {form.image ? <img src={form.image} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-[#8E5E4F]/30" />}
+                    {form.image ? <img src={form.image} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-[#8E5E4F]/30" />}
                   </div>
                   <label className="flex-1 cursor-pointer">
                     <input type="file" className="hidden" accept="image/*" onChange={async e => { const file = e.target.files?.[0]; if (file) { const base64 = await resizeImage(file, 800); setForm(prev => ({ ...prev, image: base64 })); } }} />

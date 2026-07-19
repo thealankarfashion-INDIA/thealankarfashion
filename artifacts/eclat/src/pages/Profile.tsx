@@ -5,7 +5,7 @@ import Footer from '@/components/layout/Footer';
 import { Link, useLocation, useSearch } from 'wouter';
 import {
   LogOut, Package, ChevronRight, User as UserIcon,
-  Mail, Lock, Eye, EyeOff, Sparkles, Heart,
+  Mail, Sparkles, Heart,
   Settings as SettingsIcon, MessageSquare, ShoppingBag, MapPin, Send, Paperclip,
   Wallet, Ticket, Crown, Bell, Building, Briefcase, Plus, MoreHorizontal, MoreVertical, Share2, Home,
   ArrowLeft, ArrowUp, Edit2, X, ChevronDown, Search as SearchIcon, CreditCard, Banknote, Star, HelpCircle, Navigation, Calendar, Loader2, CheckCircle2
@@ -71,22 +71,16 @@ const FloatingInput = ({ label, value, onChange, actionText, isClearable, type =
 );
 
 export default function Profile() {
-  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, logout, loading, error, clearError, googleAuthEnabled } = useAuth();
+  const { user, signInWithGoogle, sendEmailOtp, logout, loading, error, clearError, googleAuthEnabled } = useAuth();
   const { items: wishlistIds } = useWishlist();
   const [, setLocation] = useLocation();
   const searchParams = useSearch();
 
   // Auth Form State
-  const [authStep, setAuthStep] = useState<'email' | 'password'>('email');
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loginLinkSent, setLoginLinkSent] = useState(false);
 
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    password: '',
-    confirmPassword: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
@@ -369,7 +363,7 @@ export default function Profile() {
   useEffect(() => {
     clearError();
     setFormError('');
-  }, [isSignUp, clearError]);
+  }, [loginLinkSent, clearError]);
 
   const handleLogout = async () => {
     await logout();
@@ -380,30 +374,18 @@ export default function Profile() {
     e.preventDefault();
     setFormError('');
 
-    if (authStep === 'email') {
-      if (!formData.email) {
-        setFormError('Please enter a valid email address');
-        return;
-      }
-      // Simple logic: we move to password step. We ask the user to toggle "sign up" if they don't have an account
-      setAuthStep('password');
-      return;
-    }
-
-    if (isSignUp && formData.password !== formData.confirmPassword) {
-      setFormError('Passwords do not match');
+    const email = formData.email.trim().toLowerCase();
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setFormError('Please enter a valid email address');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      if (isSignUp) {
-        await signUpWithEmail(formData.name, formData.email, formData.password);
-      } else {
-        await signInWithEmail(formData.email, formData.password);
-      }
+      await sendEmailOtp(email);
+      setLoginLinkSent(true);
     } catch (err: any) {
-      // Error is handled by AuthContext, but we can catch it here if we want to stop loading
+      // AuthContext sets the user-facing error message.
     } finally {
       setIsSubmitting(false);
     }
@@ -421,7 +403,7 @@ export default function Profile() {
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6 md:hidden" />
 
         <h2 className="text-center text-lg font-semibold text-[#8E5E4F] mb-6">
-          {authStep === 'email' ? 'Log in or sign up' : (isSignUp ? 'Create Account' : 'Enter Password')}
+          {loginLinkSent ? 'Check your email' : 'Log in with email OTP'}
         </h2>
 
         {(error || formError) && (
@@ -431,61 +413,34 @@ export default function Profile() {
         )}
 
         <form onSubmit={handleAuthSubmit} className="space-y-4 flex flex-col items-center w-full">
-          {authStep === 'email' ? (
+          {!loginLinkSent ? (
             <div className="w-full relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 border-r border-gray-300 pr-3">
                 <Mail className="w-5 h-5 text-[#8E5E4F]/50" />
               </div>
               <input
-                type="email" required
-                placeholder="Enter Email Address"
+                type="email"
+                inputMode="email"
+                required
+                placeholder="Enter email address"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full pl-[60px] pr-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-lg text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] focus:ring-1 focus:ring-[#B47A67] transition-all"
               />
             </div>
           ) : (
-            <div className="w-full space-y-3">
-              <div className="text-sm text-center text-[#8E5E4F] mb-2 font-medium">
-                {formData.email} <button type="button" onClick={() => setAuthStep('email')} className="text-[#B47A67] underline ml-2 text-xs">Edit</button>
-              </div>
-              {isSignUp && (
-                <input type="text" required placeholder="Full Name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all"
-                />
-              )}
-              <div className="relative">
-                <input type={showPassword ? "text" : "password"} required placeholder="Password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full pl-4 pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E5E4F]/40 hover:text-[#B47A67] transition-colors">
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {isSignUp && (
-                <div className="relative">
-                  <input type={showPassword ? "text" : "password"} required placeholder="Confirm Password"
-                    value={formData.confirmPassword}
-                    onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                    className="w-full pl-4 pr-11 py-3.5 bg-white border border-[#E8D8D1] rounded-xl text-md text-[#8E5E4F] placeholder-[#8E5E4F]/40 outline-none focus:border-[#B47A67] transition-all"
-                  />
-                </div>
-              )}
-              <div className="flex justify-center mt-2">
-                <button type="button" onClick={() => setIsSignUp(!isSignUp)}
-                  className="text-xs text-[#8E5E4F] underline hover:text-[#B47A67]">
-                  {isSignUp ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
-                </button>
-              </div>
+            <div className="w-full rounded-xl border border-[#E8D8D1] bg-[#FBF7F5] px-4 py-5 text-center">
+              <Mail className="mx-auto mb-3 h-8 w-8 text-[#B47A67]" />
+              <p className="text-sm font-semibold text-[#8E5E4F]">
+                Login link sent to {formData.email.trim()}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-[#8E5E4F]/65">
+                Open the latest email from Thealankar or Supabase and click the sign-in link. No password needed.
+              </p>
             </div>
           )}
 
-          {authStep === 'email' && (
+          {!loginLinkSent && (
             <div className="flex items-start gap-2 w-full mt-2">
               <input type="checkbox" id="remember" className="mt-1 w-4 h-4 rounded text-[#B47A67] border-gray-300 focus:ring-[#B47A67]" defaultChecked />
               <label htmlFor="remember" className="text-sm text-[#8E5E4F]/80">Remember my login for faster sign-in</label>
@@ -494,11 +449,25 @@ export default function Profile() {
 
           <button type="submit" disabled={isSubmitting || !formData.email}
             className="w-full py-3.5 mt-2 bg-[#B47A67] text-white rounded-xl text-lg font-bold tracking-wide hover:bg-[#8E5E4F] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md">
-            {isSubmitting ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Continue'}
+            {isSubmitting ? <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : loginLinkSent ? 'Resend Login Link' : 'Send Login Link'}
           </button>
         </form>
 
-        {authStep === 'email' && (
+        {loginLinkSent && (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => {
+              setFormError('');
+              setLoginLinkSent(false);
+            }}
+            className="mt-4 text-xs text-[#8E5E4F] underline hover:text-[#B47A67] disabled:opacity-50"
+          >
+            Edit email address
+          </button>
+        )}
+
+        {!loginLinkSent && (
           <>
             <div className="flex items-center gap-4 my-6 opacity-60">
               <div className="flex-1 h-[1px] bg-gray-300" />
@@ -519,7 +488,7 @@ export default function Profile() {
             </div>
             {!googleAuthEnabled && (
               <p className="text-center text-xs text-[#8E5E4F]/60 -mt-3 mb-6">
-                Email login is active now. Google sign-in can be turned on later from Supabase auth providers.
+                Email OTP login is active now. Google sign-in can be turned on later from Supabase auth providers.
               </p>
             )}
           </>

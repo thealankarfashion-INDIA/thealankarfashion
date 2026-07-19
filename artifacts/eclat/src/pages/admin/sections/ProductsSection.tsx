@@ -227,7 +227,7 @@ export function ProductsSection() {
             <tbody><AnimatePresence>
               {filtered.map((product, i) => (
                 <motion.tr key={product.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ delay: i * 0.03 }} className="border-b border-[#E8D8D1] last:border-0 hover:bg-[#F7F1EE] transition-colors">
-                  <td className="px-5 py-3.5"><div className="flex items-center gap-3"><div className="h-10 w-10 rounded-lg overflow-hidden bg-[#F7F1EE] flex-shrink-0">{product.image && <img src={product.image} alt={product.name} className="w-full h-full object-cover" />}</div><div><div className="text-sm font-medium text-[#8E5E4F]">{product.name}</div>{product.isNew && <div className="text-[10px] text-[#B47A67]">New Arrival</div>}</div></div></td>
+                  <td className="px-5 py-3.5"><div className="flex items-center gap-3"><div className="h-10 w-10 rounded-lg overflow-hidden bg-[#F7F1EE] flex-shrink-0">{product.image && <img src={product.image} alt={product.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />}</div><div><div className="text-sm font-medium text-[#8E5E4F]">{product.name}</div>{product.isNew && <div className="text-[10px] text-[#B47A67]">New Arrival</div>}</div></div></td>
                   <td className="px-5 py-3.5 text-sm text-[#8E5E4F]/60">{product.brand}</td>
                   <td className="px-5 py-3.5 text-sm text-[#8E5E4F]/60 capitalize">
                     {categories.find(c => c.id === product.category)?.name || product.category}
@@ -299,7 +299,7 @@ export function ProductsSection() {
                 <div className="grid grid-cols-4 gap-3">
                   {form.images.map((img, idx) => (
                     <div key={idx} className="relative aspect-square rounded-xl overflow-hidden bg-[#F7F1EE] border border-[#E8D8D1]">
-                      <img src={img} alt="" className="w-full h-full object-cover" />
+                      <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       <button onClick={() => setForm(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== idx) }))} className="absolute top-1 right-1 p-1 bg-white/80 rounded-full hover:bg-white transition-colors">
                         <X className="w-3 h-3 text-red-500" />
                       </button>

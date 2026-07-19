@@ -6,6 +6,7 @@ import { getDB } from "@/lib/supabase";
 import useStoreCategories from "@/hooks/useStoreCategories";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
 import { normalizeDisplayOrder } from "@/lib/displayOrder";
+import { uploadImageDataUrl } from "@/lib/supabaseStorage";
 
 async function resizeImage(file: File, maxWidth = 800, quality = 0.72): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -50,7 +51,8 @@ export function CategoriesSection() {
     try {
       const db = getDB(); let imageUrl = form.image;
       if (imageFile) {
-        imageUrl = await resizeImage(imageFile);
+        const resized = await resizeImage(imageFile);
+        imageUrl = await uploadImageDataUrl(resized, `categories/${Date.now()}-${crypto.randomUUID()}.jpg`);
       }
       const data: any = { name: form.name, slug: form.slug, image: imageUrl, displayOrder: Number(form.displayOrder), updatedAt: serverTimestamp() };
       let savedId = editId;
@@ -94,7 +96,7 @@ export function CategoriesSection() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"><AnimatePresence>
         {categories.map((cat, i) => (
           <motion.div key={cat.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.07 }} className="bg-white border border-[#E8D8D1] rounded-2xl overflow-hidden group hover:shadow-md transition-shadow">
-            <div className="aspect-video relative overflow-hidden">{cat.image ? <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full bg-[#F7F1EE] flex items-center justify-center"><Grid className="h-8 w-8 text-[#E8D8D1]" /></div>}</div>
+            <div className="aspect-video relative overflow-hidden">{cat.image ? <img src={cat.image} alt={cat.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /> : <div className="w-full h-full bg-[#F7F1EE] flex items-center justify-center"><Grid className="h-8 w-8 text-[#E8D8D1]" /></div>}</div>
             <div className="p-5">
               <div className="flex items-start justify-between mb-4"><h3 className="font-serif text-lg text-[#8E5E4F]">{cat.name}</h3><span className="text-[10px] tracking-wider uppercase text-[#8E5E4F]/40 border border-[#E8D8D1] px-2 py-0.5 rounded-md">Order: {cat.displayOrder || 0}</span></div>
               <div className="flex gap-2">
