@@ -17,6 +17,8 @@ import { useSearch as useSmartSearch } from '@/hooks/useSearch';
 
 
 type SortOption = 'default' | 'price-asc' | 'price-desc' | 'rating' | 'new';
+const INITIAL_PRODUCT_COUNT = 16;
+const LOAD_MORE_COUNT = 16;
 
 // Exact Style 4 input/select style — adapted to Hub colours
 const filterInput = "w-full bg-[#F7F1EE] border border-[#E8D8D1] rounded-lg px-3 py-2.5 text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors";
@@ -49,6 +51,7 @@ export default function Shop() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [desktopFiltersCollapsed, setDesktopFiltersCollapsed] = useState(false);
   const [activeFilterTab, setActiveFilterTab] = useState<'category' | 'brand' | 'price' | 'rating'>('category');
+  const [visibleCount, setVisibleCount] = useState(INITIAL_PRODUCT_COUNT);
 
   const { items, isCartOpen, setIsCartOpen } = useCart();
   const cartCount = items.reduce((acc, item) => acc + item.quantity, 0);
@@ -136,6 +139,15 @@ export default function Shop() {
 
     return list;
   }, [products, search, smartSearch.results, smartSearch.debouncedQuery, brand, category, minPrice, maxPrice, minRating, inStockOnly, sort]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_PRODUCT_COUNT);
+  }, [search, category, brand, minPrice, maxPrice, minRating, inStockOnly, sort]);
+
+  const visibleProducts = useMemo(
+    () => filtered.slice(0, visibleCount),
+    [filtered, visibleCount]
+  );
 
   const clearFilters = () => {
     setSearch(''); setCategory('all'); setBrand('all');
@@ -369,11 +381,24 @@ export default function Shop() {
                       <button onClick={clearFilters} className="px-6 py-2.5 bg-[#B47A67] text-white rounded-full text-sm font-medium hover:bg-[#A86F5C] transition-colors">Clear All Filters</button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-6">
-                      {filtered.map((product, i) => (
-                        <ProductCard key={product.id} product={product} index={i} />
-                      ))}
-                    </div>
+                    <>
+                      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-6">
+                        {visibleProducts.map((product, i) => (
+                          <ProductCard key={product.id} product={product} index={i} />
+                        ))}
+                      </div>
+                      {visibleCount < filtered.length && (
+                        <div className="flex justify-center py-8 md:py-10">
+                          <button
+                            type="button"
+                            onClick={() => setVisibleCount((count) => count + LOAD_MORE_COUNT)}
+                            className="rounded-full border border-[#B47A67] bg-white px-8 py-3 text-sm font-semibold tracking-[0.14em] text-[#8E5E4F] transition-colors hover:bg-[#B47A67] hover:text-white"
+                          >
+                            Load More Products
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}

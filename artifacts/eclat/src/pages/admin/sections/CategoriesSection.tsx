@@ -8,7 +8,7 @@ import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
 import { normalizeDisplayOrder } from "@/lib/displayOrder";
 import { uploadImageDataUrl } from "@/lib/supabaseStorage";
 
-async function resizeImage(file: File, maxWidth = 800, quality = 0.72): Promise<string> {
+async function resizeImage(file: File, maxWidth = 650, quality = 0.62): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);

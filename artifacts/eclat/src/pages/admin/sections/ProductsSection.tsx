@@ -10,7 +10,7 @@ import useStoreBrands from "@/hooks/useStoreBrands";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
 import { normalizeDisplayOrder } from "@/lib/displayOrder";
 
-async function resizeImage(file: File, maxWidth = 900, quality = 0.72): Promise<string> {
+async function resizeImage(file: File, maxWidth = 700, quality = 0.62): Promise<string> {
   const reader = new FileReader();
   const dataUrl = await new Promise<string>((resolve) => { reader.onload = () => resolve(reader.result as string); reader.readAsDataURL(file); });
   return new Promise<string>((resolve) => {

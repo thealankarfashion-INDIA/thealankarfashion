@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useRoute, Link } from 'wouter';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -5,15 +6,37 @@ import SEO from '@/components/seo/SEO';
 import { collections } from '@/data/collections';
 import useStoreProducts from '@/hooks/useStoreProducts';
 import ProductCard from '@/components/product/ProductCard';
-import { ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ProductCardSkeleton } from '@/components/ui/SkeletonLoaders';
+
+const INITIAL_COLLECTION_PRODUCT_COUNT = 16;
+const COLLECTION_LOAD_MORE_COUNT = 16;
 
 export default function CollectionDetail() {
   const [, params] = useRoute('/collections/:slug');
   const slug = params?.slug;
   const collection = collections.find((c) => c.slug === slug);
   const { products, loading } = useStoreProducts();
+  const [visibleCount, setVisibleCount] = useState(INITIAL_COLLECTION_PRODUCT_COUNT);
+  const collectionName = collection?.name.toLowerCase() ?? '';
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_COLLECTION_PRODUCT_COUNT);
+  }, [slug]);
+
+  const collectionProducts = useMemo(
+    () => {
+      if (!collectionName) return [];
+      return products.filter(
+        (p) =>
+          p.collection?.toLowerCase() === collectionName ||
+          p.category?.toLowerCase() === collectionName
+      );
+    },
+    [products, collectionName]
+  );
+  const visibleProducts = collectionProducts.slice(0, visibleCount);
 
   if (!collection) {
     return (
@@ -26,12 +49,6 @@ export default function CollectionDetail() {
       </div>
     );
   }
-
-  const collectionProducts = products.filter(
-    (p) =>
-      p.collection?.toLowerCase() === collection.name.toLowerCase() ||
-      p.category?.toLowerCase() === collection.name.toLowerCase()
-  );
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-background">
@@ -105,11 +122,24 @@ export default function CollectionDetail() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-12">
-                {collectionProducts.map((product, i) => (
-                  <ProductCard key={product.id} product={product} index={i} />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-12">
+                  {visibleProducts.map((product, i) => (
+                    <ProductCard key={product.id} product={product} index={i} />
+                  ))}
+                </div>
+                {visibleCount < collectionProducts.length && (
+                  <div className="flex justify-center pt-12">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((count) => count + COLLECTION_LOAD_MORE_COUNT)}
+                      className="rounded-full border border-[#B47A67] bg-white px-8 py-3 text-sm font-semibold tracking-[0.14em] text-[#8E5E4F] transition-colors hover:bg-[#B47A67] hover:text-white"
+                    >
+                      Load More Products
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

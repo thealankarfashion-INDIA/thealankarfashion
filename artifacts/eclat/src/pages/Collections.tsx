@@ -8,6 +8,8 @@ import useStoreCategories from '@/hooks/useStoreCategories';
 import useStoreProducts from '@/hooks/useStoreProducts';
 import { useCart } from '@/context/CartContext';
 
+const CATEGORY_PREVIEW_PRODUCT_LIMIT = 12;
+
 export default function Collections() {
   const [, setLocation] = useLocation();
   const { categories, loading: catsLoading } = useStoreCategories();
@@ -224,6 +226,9 @@ export default function Collections() {
                 const catProducts = products.filter((p) => p.category === category.id);
                 const featured = catProducts.filter((p) => p.featured);
                 const others = catProducts.filter((p) => !p.featured);
+                const visibleFeatured = featured.slice(0, CATEGORY_PREVIEW_PRODUCT_LIMIT);
+                const visibleOthers = others.slice(0, Math.max(0, CATEGORY_PREVIEW_PRODUCT_LIMIT - visibleFeatured.length));
+                const hasMoreProducts = catProducts.length > CATEGORY_PREVIEW_PRODUCT_LIMIT;
 
                 return (
                   <section
@@ -256,14 +261,14 @@ export default function Collections() {
                     ) : (
                       <>
                         {/* Featured row */}
-                        {featured.length > 0 && (
+                        {visibleFeatured.length > 0 && (
                           <div className="mb-6">
                             <div className="flex items-center gap-2 mb-3">
                               <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-[#B47A67] font-semibold">Popular</span>
                               <div className="h-px flex-1 bg-gray-100" />
                             </div>
                             <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-x-3 gap-y-5 md:gap-x-5 md:gap-y-7">
-                              {featured.map((product) => (
+                              {visibleFeatured.map((product) => (
                                 <div
                                   key={product.id}
                                   onClick={() => setLocation(`/product/${product.id}`)}
@@ -294,16 +299,16 @@ export default function Collections() {
                         )}
 
                         {/* Other products */}
-                        {others.length > 0 && (
+                        {visibleOthers.length > 0 && (
                           <>
-                            {featured.length > 0 && (
+                            {visibleFeatured.length > 0 && (
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="text-[9px] md:text-[11px] uppercase tracking-wider text-gray-400 font-semibold">All</span>
                                 <div className="h-px flex-1 bg-gray-100" />
                               </div>
                             )}
                             <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-x-3 gap-y-5 md:gap-x-5 md:gap-y-7">
-                              {others.map((product) => (
+                              {visibleOthers.map((product) => (
                                 <div
                                   key={product.id}
                                   onClick={() => setLocation(`/product/${product.id}`)}
@@ -325,6 +330,17 @@ export default function Collections() {
                               ))}
                             </div>
                           </>
+                        )}
+                        {hasMoreProducts && (
+                          <div className="mt-7 flex justify-center md:justify-start">
+                            <button
+                              type="button"
+                              onClick={() => setLocation(`/shop?category=${category.id}`)}
+                              className="rounded-full border border-[#B47A67] bg-white px-5 py-2 text-[10px] md:text-xs font-semibold tracking-[0.14em] text-[#8E5E4F] transition-colors hover:bg-[#B47A67] hover:text-white"
+                            >
+                              View All Products
+                            </button>
+                          </div>
                         )}
                       </>
                     )}
