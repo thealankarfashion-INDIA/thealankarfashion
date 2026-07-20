@@ -76,6 +76,8 @@ export function OrdersSection() {
   });
 
   const handleStatus = async (orderId: string, status: OrderStatus) => {
+    const previousStatus = orders.find(o => o.orderId === orderId)?.orderStatus;
+
     // Optimistic UI updates for instant feedback
     setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, orderStatus: status } : o));
     if (viewOrder?.orderId === orderId) {
@@ -85,8 +87,18 @@ export function OrdersSection() {
     setUpdating(true);
     try {
       await updateOrderStatus(orderId, status);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      if (previousStatus) {
+        setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, orderStatus: previousStatus } : o));
+        if (viewOrder?.orderId === orderId) {
+          setViewOrder(prev => prev ? { ...prev, orderStatus: previousStatus } : null);
+        }
+      }
+      const message = err?.message?.includes("Insufficient stock")
+        ? err.message
+        : "Could not update the order status. Please try again.";
+      alert(message);
     }
     setUpdating(false);
   };
