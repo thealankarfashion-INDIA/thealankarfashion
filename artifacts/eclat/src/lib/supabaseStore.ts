@@ -336,6 +336,9 @@ export async function setDoc(ref: Ref, data: Record<string, any>, options?: { me
   const merged = applySentinels(current, data);
   const payload: Record<string, any> = { id, ...storedPayload(merged) };
   if (ref.parent?.userId) payload.user_id = ref.parent.userId;
+  if (ref.table === 'orders' && typeof merged.userId === 'string' && merged.userId) {
+    payload.user_id = merged.userId;
+  }
   const { error } = await supabase.from(ref.table).upsert(payload, { onConflict: 'id' });
   if (!error) {
     invalidateTableCache(ref.table);

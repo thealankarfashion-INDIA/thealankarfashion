@@ -51,8 +51,13 @@ export async function createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updat
   const db = getDB();
   const docRef = doc(db, ORDERS_COLLECTION, order.orderId);
   const reservationExpiresAt = new Date(Date.now() + STOCK_RESERVATION_MS).toISOString();
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) {
+    throw new Error('Please sign in again before placing your order.');
+  }
   await setDoc(docRef, {
     ...stripUndefined(order as Record<string, any>),
+    userId: authData.user.id,
     stockReserved: false,
     stockDeducted: false,
     stockCommitted: false,
