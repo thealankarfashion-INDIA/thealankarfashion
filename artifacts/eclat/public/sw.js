@@ -1,6 +1,6 @@
 const IMAGE_CACHE = "thealankar-image-cache-v1";
 const MAX_IMAGE_CACHE_ENTRIES = 400;
-const SUPABASE_STORAGE_HOST = "nevrcoezrzolxspfosla.supabase.co";
+const SUPABASE_STORAGE_HOST = "ebojhaqmsocisadjgury.supabase.co";
 
 function shouldCacheImage(request) {
   if (request.method !== "GET") return false;

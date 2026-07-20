@@ -4,10 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 // defaults so a local/static build cannot publish a bundle that crashes before
 // React mounts when build-time environment variables are unavailable.
 const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL || "https://nevrcoezrzolxspfosla.supabase.co";
+  import.meta.env.VITE_SUPABASE_URL || "https://ebojhaqmsocisadjgury.supabase.co";
 const supabasePublishableKey =
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  "sb_publishable_xF75v7uPaZ_UjSLqGWcTkA_y6HdV5_G";
+  "sb_publishable_JTFNntQpMYdiDaxoFO9Csw_JWfjdbkD";
 const ADMIN_RECOVERY_STORAGE_KEY = "thealankar_admin_recovery";
 const ADMIN_RECOVERY_ERROR_STORAGE_KEY = "thealankar_admin_recovery_error";
 const ADMIN_RECOVERY_REQUEST_KEY = "thealankar_admin_recovery_requested_at";
