@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { collection, query, orderBy, onSnapshot } from '@/lib/supabaseStore';
+import { collection, query, orderBy, onSnapshot, getDocs } from '@/lib/supabaseStore';
 import { getDB } from '../lib/supabase';
 import { loadStoreSeed } from '../lib/storeSeed';
 import type { Product, Offer, MainBanner } from '../lib/types';
@@ -17,6 +17,20 @@ interface StoreDataContextType {
 }
 
 const StoreDataContext = createContext<StoreDataContextType | null>(null);
+
+function shouldUseRealtimeStore() {
+  if (typeof window === "undefined") return false;
+  const path = window.location.pathname || "";
+  const hash = window.location.hash || "";
+  const search = window.location.search || "";
+  return (
+    path.includes("/antomanage") ||
+    path.includes("/admin/") ||
+    hash.startsWith("#/antomanage") ||
+    search.includes("admin=antomanage") ||
+    search.includes("admin-reset=1")
+  );
+}
 
 export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -117,6 +131,43 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
     try {
       const db = getDB();
       const qProducts = query(collection(db, 'products'), orderBy('displayOrder', 'asc'));
+
+      if (!shouldUseRealtimeStore()) {
+        void getDocs(qProducts)
+          .then((snap) => {
+            const arr = snap.docs.map((d) => mapProduct(d.id, d.data() as any));
+            if (arr.length > 0) {
+              if (!active) return;
+              setProducts(sortByDisplayOrder(arr));
+              setProductsSource("database");
+              setProductsError(null);
+              setProductsLoading(false);
+              return;
+            }
+
+            return loadStoreSeed().then((seed) => {
+              if (!active) return;
+              setProducts(sortByDisplayOrder(seed.products || []));
+              setProductsSource("seed");
+              setProductsError(null);
+              setProductsLoading(false);
+            });
+          })
+          .catch((err) => {
+            console.error("StoreDataProvider query error (products):", err);
+            void loadStoreSeed().then((seed) => {
+              if (!active) return;
+              setProducts(sortByDisplayOrder(seed.products || []));
+              setProductsSource("seed");
+              setProductsError(err instanceof Error ? err.message : "Could not load saved products.");
+              setProductsLoading(false);
+            });
+          });
+        return () => {
+          active = false;
+        };
+      }
+
       unsubProducts = onSnapshot(
         qProducts,
         (snap) => {
@@ -168,16 +219,15 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let active = true;
-    let unsubOffers: () => void;
-    let unsubBanners: () => void;
+    let unsubOffers: (() => void) | undefined;
+    let unsubBanners: (() => void) | undefined;
 
     try {
       const db = getDB();
 
       const qOffers = query(collection(db, 'offers'), orderBy('order', 'asc'));
-      unsubOffers = onSnapshot(
-        qOffers,
-        (snapshot) => {
+      void getDocs(qOffers)
+        .then((snapshot) => {
           const list: Offer[] = snapshot.docs.map((doc) => {
             return { id: doc.id, ...doc.data() } as Offer;
           });
@@ -188,26 +238,24 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
 
-          void loadStoreSeed().then((seed) => {
+          return loadStoreSeed().then((seed) => {
             if (!active) return;
             setOffers(seed.offers || []);
             setOffersLoading(false);
           });
-        },
-        (error) => {
+        })
+        .catch((error) => {
           console.error("StoreDataProvider query error (offers):", error);
           void loadStoreSeed().then((seed) => {
             if (!active) return;
             setOffers(seed.offers || []);
             setOffersLoading(false);
           });
-        }
-      );
+        });
 
       const qBanners = query(collection(db, 'mainBanners'), orderBy('order', 'asc'));
-      unsubBanners = onSnapshot(
-        qBanners,
-        (snapshot) => {
+      void getDocs(qBanners)
+        .then((snapshot) => {
           const list: MainBanner[] = snapshot.docs
             .map((doc) => ({ id: doc.id, ...doc.data() } as MainBanner))
             .filter((banner) => banner.active);
@@ -218,21 +266,20 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
             return;
           }
 
-          void loadStoreSeed().then((seed) => {
+          return loadStoreSeed().then((seed) => {
             if (!active) return;
             setMainBanners((seed.mainBanners || []).filter((banner) => banner.active));
             setMainBannersLoading(false);
           });
-        },
-        (error) => {
+        })
+        .catch((error) => {
           console.error("StoreDataProvider query error (banners):", error);
           void loadStoreSeed().then((seed) => {
             if (!active) return;
             setMainBanners((seed.mainBanners || []).filter((banner) => banner.active));
             setMainBannersLoading(false);
           });
-        }
-      );
+        });
     } catch (err) {
       console.warn("Supabase not configured in StoreDataProvider", err);
       void loadStoreSeed().then((seed) => {

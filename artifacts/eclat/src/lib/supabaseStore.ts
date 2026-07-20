@@ -41,6 +41,20 @@ type StoreDocSnapshot = {
 
 type StoreSnapshot = StoreQuerySnapshot & StoreDocSnapshot;
 
+const PUBLIC_CACHE_TABLES = new Set([
+  'products',
+  'categories',
+  'brands',
+  'offers',
+  'main_banners',
+  'announcements',
+  'testing_videos',
+  'site_settings',
+  'delivery_settings',
+]);
+const STORE_CACHE_PREFIX = 'thealankar:supabase-store:';
+const STORE_CACHE_TTL_MS = 20 * 60 * 1000;
+
 const tableMap: Record<string, string> = {
   products: 'products',
   offers: 'offers',
@@ -61,6 +75,92 @@ const tableMap: Record<string, string> = {
 
 function tableFor(name: string) {
   return tableMap[name] || name;
+}
+
+function isBrowser() {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+}
+
+function isAdminPath() {
+  if (!isBrowser()) return false;
+  const path = window.location.pathname || '';
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  return (
+    path.includes('/antomanage') ||
+    path.includes('/admin/') ||
+    hash.startsWith('#/antomanage') ||
+    search.includes('admin=antomanage') ||
+    search.includes('admin-reset=1')
+  );
+}
+
+function isFreshnessCriticalPath() {
+  if (!isBrowser()) return false;
+  const path = window.location.pathname || '';
+  return (
+    path.includes('/checkout') ||
+    path.includes('/order') ||
+    path.includes('/track') ||
+    path.includes('/profile') ||
+    path.includes('/wallet')
+  );
+}
+
+function cacheAllowedFor(ref: QueryShape | Ref) {
+  return (
+    isBrowser() &&
+    !isAdminPath() &&
+    !isFreshnessCriticalPath() &&
+    !ref.parent?.userId &&
+    PUBLIC_CACHE_TABLES.has(ref.table)
+  );
+}
+
+function cacheKeyFor(ref: QueryShape | Ref) {
+  return `${STORE_CACHE_PREFIX}${ref.table}:${ref.id || 'collection'}`;
+}
+
+function readCachedRows(ref: QueryShape | Ref) {
+  if (!cacheAllowedFor(ref)) return null;
+
+  try {
+    const raw = window.localStorage.getItem(cacheKeyFor(ref));
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as { savedAt: number; rows: any[] };
+    if (!cached?.savedAt || !Array.isArray(cached.rows)) return null;
+    if (Date.now() - cached.savedAt > STORE_CACHE_TTL_MS) return null;
+    return cached.rows;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedRows(ref: QueryShape | Ref, rows: any[]) {
+  if (!cacheAllowedFor(ref)) return;
+
+  try {
+    window.localStorage.setItem(
+      cacheKeyFor(ref),
+      JSON.stringify({ savedAt: Date.now(), rows })
+    );
+  } catch {
+    // Browser storage can be unavailable or full; live Supabase remains the source of truth.
+  }
+}
+
+function invalidateTableCache(table: string) {
+  if (!isBrowser()) return;
+
+  try {
+    const prefix = `${STORE_CACHE_PREFIX}${table}:`;
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith(prefix)) window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Cache invalidation is best-effort.
+  }
 }
 
 function settingsId(id?: string) {
@@ -148,12 +248,27 @@ function sortRows(rows: any[], order?: QueryShape['order']) {
 }
 
 async function fetchRows(ref: QueryShape) {
+  const cachedRows = readCachedRows(ref);
+  if (cachedRows) {
+    let rows = cachedRows;
+    for (const filter of ref.filters || []) {
+      rows = rows.filter((row: any) => {
+        const actual = valueForFilter(row, filter.field);
+        return filter.op === '!=' ? actual !== filter.value : actual === filter.value;
+      });
+    }
+    rows = sortRows(rows, ref.order);
+    if (ref.maxRows) rows = rows.slice(0, ref.maxRows);
+    return rows;
+  }
+
   let request = supabase.from(ref.table).select('*');
   if (ref.id) request = request.eq('id', ref.id);
   if (ref.parent?.userId) request = request.eq('user_id', ref.parent.userId);
   const { data, error } = await request;
   if (error) throw error;
   let rows = data || [];
+  writeCachedRows(ref, rows);
   for (const filter of ref.filters || []) {
     rows = rows.filter((row: any) => {
       const actual = valueForFilter(row, filter.field);
@@ -222,7 +337,10 @@ export async function setDoc(ref: Ref, data: Record<string, any>, options?: { me
   const payload: Record<string, any> = { id, ...storedPayload(merged) };
   if (ref.parent?.userId) payload.user_id = ref.parent.userId;
   const { error } = await supabase.from(ref.table).upsert(payload, { onConflict: 'id' });
-  if (!error) return;
+  if (!error) {
+    invalidateTableCache(ref.table);
+    return;
+  }
 
   if (ref.table === 'site_settings' || ref.table === 'delivery_settings') {
     const { error: rpcError } = await supabase.rpc('admin_upsert_json_doc', {
@@ -230,7 +348,10 @@ export async function setDoc(ref: Ref, data: Record<string, any>, options?: { me
       doc_id: id,
       doc_data: merged,
     });
-    if (!rpcError) return;
+    if (!rpcError) {
+      invalidateTableCache(ref.table);
+      return;
+    }
     throw rpcError;
   }
 
@@ -252,6 +373,7 @@ export async function deleteDoc(ref: Ref) {
   if (!ref.id) throw new Error('Cannot delete document without id.');
   const { error } = await supabase.from(ref.table).delete().eq('id', ref.id);
   if (error) throw error;
+  invalidateTableCache(ref.table);
 }
 
 function asSnapshot(snapshot: StoreQuerySnapshot | StoreDocSnapshot): StoreSnapshot {

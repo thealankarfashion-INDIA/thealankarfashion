@@ -1,14 +1,20 @@
 import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Link, useLocation } from 'wouter';
 import useStoreProducts from '@/hooks/useStoreProducts';
 import useStoreCategories from '@/hooks/useStoreCategories';
 import ProductCard from '@/components/product/ProductCard';
 import { ShoppingBag } from 'lucide-react';
 import { ProductCardSkeleton } from '@/components/ui/SkeletonLoaders';
 
-export default function ShopByCategory() {
-  const { products, loading } = useStoreProducts();
+type ShopByCategoryProps = {
+  showProducts?: boolean;
+};
+
+export default function ShopByCategory({ showProducts = true }: ShopByCategoryProps) {
+  const { products, loading } = useStoreProducts(showProducts);
   const { categories } = useStoreCategories();
+  const [, setLocation] = useLocation();
   const [activeCategory, setActiveCategory] = useState('all');
   const [visibleCount, setVisibleCount] = useState(12);
   const productsRef = useRef<HTMLDivElement>(null);
@@ -50,7 +56,15 @@ export default function ShopByCategory() {
             {derivedCategories.map((cat, i) => (
               <motion.div key={cat.id} whileTap={{ scale: 0.96 }}
                 className={`flex-none w-[130px] scroll-snap-start bg-[#F7F1EE] rounded-[16px] shadow-sm border cursor-pointer overflow-hidden transition-all flex flex-col ${activeCategory === cat.id ? 'border-[#B47A67] ring-1 ring-[#B47A67] shadow-md' : 'border-[#E8D8D1]/40'}`}
-                onClick={() => { setActiveCategory(cat.id); setVisibleCount(12); if (window.innerWidth < 768) setTimeout(() => productsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100); }}
+                onClick={() => {
+                  if (!showProducts) {
+                    setLocation(cat.id === 'all' ? '/shop' : `/shop?category=${cat.id}`);
+                    return;
+                  }
+                  setActiveCategory(cat.id);
+                  setVisibleCount(12);
+                  if (window.innerWidth < 768) setTimeout(() => productsRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                }}
               >
                 <div className="h-[130px] w-full overflow-hidden relative border-b border-[#E8D8D1]/30">
                   {cat.image ? <img src={cat.image} alt={cat.name} className="w-full h-full object-cover mix-blend-multiply group-hover:scale-105 transition-transform duration-500" loading={i < 4 ? 'eager' : 'lazy'} /> : <div className="w-full h-full flex items-center justify-center"><span className="text-[#8E5E4F]/40 text-sm font-serif">{cat.name}</span></div>}
@@ -68,8 +82,20 @@ export default function ShopByCategory() {
           </div>
         </div>
 
+        {!showProducts && (
+          <div className="flex justify-center pb-4">
+            <Link
+              href="/shop"
+              className="inline-flex items-center gap-2 rounded-full border border-[#B47A67] bg-[#B47A67] px-6 py-3 text-xs font-bold uppercase tracking-[0.14em] text-white shadow-sm transition-colors hover:bg-[#8E5E4F]"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              View Products
+            </Link>
+          </div>
+        )}
+
         {/* Product grid */}
-        <div ref={productsRef} className="scroll-mt-24">
+        {showProducts && <div ref={productsRef} className="scroll-mt-24">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-sm text-[#8E5E4F]">{derivedCategories.find(c => c.id === activeCategory)?.name || 'Products'}</h3>
             <span className="text-xs text-[#8E5E4F]/50 font-medium bg-[#F7F1EE] px-2 py-0.5 rounded">{loading ? '...' : `${filteredProducts.length} items`}</span>
@@ -96,7 +122,7 @@ export default function ShopByCategory() {
               )}
             </>
           )}
-        </div>
+        </div>}
       </div>
     </section>
   );

@@ -477,14 +477,9 @@ export default function Home() {
               {/* Defer below-the-fold sections to prioritize Hero and Categories */}
               <DeferredRender>
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
-                <LovedOnes />
-                <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
                 <HeroBanner />
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
-                <ShopByCategory />
-
-                <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
-                <ShopByBrand />
+                <ShopByCategory showProducts={false} />
 
                 <div className="mx-4 h-[1px] bg-gradient-to-r from-transparent via-[#E8D8D1] to-transparent md:hidden my-4 opacity-70" />
                 <FAQSection />
