@@ -121,7 +121,7 @@ function cacheKeyFor(ref: QueryShape | Ref) {
   return `${STORE_CACHE_PREFIX}${ref.table}:${ref.id || 'collection'}`;
 }
 
-function readCachedRows(ref: QueryShape | Ref) {
+function readCachedRows(ref: QueryShape | Ref, allowStale = false) {
   if (!cacheAllowedFor(ref)) return null;
 
   try {
@@ -129,7 +129,7 @@ function readCachedRows(ref: QueryShape | Ref) {
     if (!raw) return null;
     const cached = JSON.parse(raw) as { savedAt: number; rows: any[] };
     if (!cached?.savedAt || !Array.isArray(cached.rows)) return null;
-    if (Date.now() - cached.savedAt > STORE_CACHE_TTL_MS) return null;
+    if (!allowStale && Date.now() - cached.savedAt > STORE_CACHE_TTL_MS) return null;
     return cached.rows;
   } catch {
     return null;
@@ -247,37 +247,35 @@ function sortRows(rows: any[], order?: QueryShape['order']) {
   });
 }
 
-async function fetchRows(ref: QueryShape) {
-  const cachedRows = readCachedRows(ref);
-  if (cachedRows) {
-    let rows = cachedRows;
-    for (const filter of ref.filters || []) {
-      rows = rows.filter((row: any) => {
-        const actual = valueForFilter(row, filter.field);
-        return filter.op === '!=' ? actual !== filter.value : actual === filter.value;
-      });
-    }
-    rows = sortRows(rows, ref.order);
-    if (ref.maxRows) rows = rows.slice(0, ref.maxRows);
-    return rows;
-  }
-
-  let request = supabase.from(ref.table).select('*');
-  if (ref.id) request = request.eq('id', ref.id);
-  if (ref.parent?.userId) request = request.eq('user_id', ref.parent.userId);
-  const { data, error } = await request;
-  if (error) throw error;
-  let rows = data || [];
-  writeCachedRows(ref, rows);
+function finalizeRows(rows: any[], ref: QueryShape) {
+  let result = rows;
   for (const filter of ref.filters || []) {
-    rows = rows.filter((row: any) => {
+    result = result.filter((row: any) => {
       const actual = valueForFilter(row, filter.field);
       return filter.op === '!=' ? actual !== filter.value : actual === filter.value;
     });
   }
-  rows = sortRows(rows, ref.order);
-  if (ref.maxRows) rows = rows.slice(0, ref.maxRows);
-  return rows;
+  result = sortRows(result, ref.order);
+  if (ref.maxRows) result = result.slice(0, ref.maxRows);
+  return result;
+}
+
+async function fetchRows(ref: QueryShape) {
+  try {
+    let request = supabase.from(ref.table).select('*');
+    if (ref.id) request = request.eq('id', ref.id);
+    if (ref.parent?.userId) request = request.eq('user_id', ref.parent.userId);
+    const { data, error } = await request;
+    if (error) throw error;
+    const rows = data || [];
+    writeCachedRows(ref, rows);
+    return finalizeRows(rows, ref);
+  } catch (error) {
+    const cachedRows = readCachedRows(ref, true);
+    if (!cachedRows) throw error;
+
+    return finalizeRows(cachedRows, ref);
+  }
 }
 
 export function collection(_db: unknown, ...path: string[]): Ref {

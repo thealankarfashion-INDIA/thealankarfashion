@@ -1,7 +1,6 @@
 const IMAGE_CACHE = "thealankar-image-cache-v2";
-const DATA_CACHE = "thealankar-public-data-cache-v1";
+const DATA_CACHE = "thealankar-public-data-cache-v2";
 const MAX_IMAGE_CACHE_ENTRIES = 900;
-const PUBLIC_DATA_TTL_MS = 20 * 60 * 1000;
 const SUPABASE_STORAGE_HOST = "opaszigtibugtrxfsufn.supabase.co";
 const PUBLIC_DATA_TABLES = new Set([
   "products",
@@ -116,30 +115,39 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.open(shouldCacheImageRequest ? IMAGE_CACHE : DATA_CACHE).then(async (cache) => {
-      const cached = await cache.match(request);
-      if (cached) {
-        const cachedAt = Number(cached.headers.get("sw-cache-time") || 0);
-        if (shouldCacheImageRequest || (cachedAt && Date.now() - cachedAt < PUBLIC_DATA_TTL_MS)) {
-          return cached;
-        }
-      }
-
-      const response = await fetch(request);
-      if (response.ok || response.type === "opaque") {
-        const responseToCache = shouldCacheDataRequest
-          ? new Response(response.clone().body, {
+      if (shouldCacheDataRequest) {
+        try {
+          const response = await fetch(request, { cache: "no-store" });
+          if (response.ok) {
+            const responseToCache = new Response(response.clone().body, {
               status: response.status,
               statusText: response.statusText,
               headers: new Headers(response.headers),
-            })
-          : response.clone();
-        if (shouldCacheDataRequest) {
-          responseToCache.headers.set("sw-cache-time", String(Date.now()));
+            });
+            event.waitUntil(
+              cache
+                .put(request, responseToCache)
+                .then(() => trimDataCache(cache))
+            );
+          }
+          return response;
+        } catch (error) {
+          const cachedResponse = await cache.match(request);
+          if (cachedResponse) return cachedResponse;
+          throw error;
         }
+      }
+
+      const cached = await cache.match(request);
+      if (cached) return cached;
+
+      const response = await fetch(request);
+      if (response.ok || response.type === "opaque") {
+        const responseToCache = response.clone();
         event.waitUntil(
           cache
             .put(request, responseToCache)
-            .then(() => (shouldCacheImageRequest ? trimCache(cache) : trimDataCache(cache)))
+            .then(() => trimCache(cache))
         );
       }
       return response;

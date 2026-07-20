@@ -18,20 +18,6 @@ interface StoreDataContextType {
 
 const StoreDataContext = createContext<StoreDataContextType | null>(null);
 
-function shouldUseRealtimeStore() {
-  if (typeof window === "undefined") return false;
-  const path = window.location.pathname || "";
-  const hash = window.location.hash || "";
-  const search = window.location.search || "";
-  return (
-    path.includes("/antomanage") ||
-    path.includes("/admin/") ||
-    hash.startsWith("#/antomanage") ||
-    search.includes("admin=antomanage") ||
-    search.includes("admin-reset=1")
-  );
-}
-
 export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -131,42 +117,6 @@ export const StoreDataProvider = ({ children }: { children: ReactNode }) => {
     try {
       const db = getDB();
       const qProducts = query(collection(db, 'products'), orderBy('displayOrder', 'asc'));
-
-      if (!shouldUseRealtimeStore()) {
-        void getDocs(qProducts)
-          .then((snap) => {
-            const arr = snap.docs.map((d) => mapProduct(d.id, d.data() as any));
-            if (arr.length > 0) {
-              if (!active) return;
-              setProducts(sortByDisplayOrder(arr));
-              setProductsSource("database");
-              setProductsError(null);
-              setProductsLoading(false);
-              return;
-            }
-
-            return loadStoreSeed().then((seed) => {
-              if (!active) return;
-              setProducts(sortByDisplayOrder(seed.products || []));
-              setProductsSource("seed");
-              setProductsError(null);
-              setProductsLoading(false);
-            });
-          })
-          .catch((err) => {
-            console.error("StoreDataProvider query error (products):", err);
-            void loadStoreSeed().then((seed) => {
-              if (!active) return;
-              setProducts(sortByDisplayOrder(seed.products || []));
-              setProductsSource("seed");
-              setProductsError(err instanceof Error ? err.message : "Could not load saved products.");
-              setProductsLoading(false);
-            });
-          });
-        return () => {
-          active = false;
-        };
-      }
 
       unsubProducts = onSnapshot(
         qProducts,
