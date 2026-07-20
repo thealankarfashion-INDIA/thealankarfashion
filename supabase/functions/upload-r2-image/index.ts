@@ -102,11 +102,12 @@ Deno.serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const authHeader = req.headers.get('authorization') || '';
-  const authClient = createClient(supabaseUrl, serviceRoleKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
+  const accessToken = authHeader.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!accessToken) return json({ error: 'Authentication required' }, 401);
+
+  const authClient = createClient(supabaseUrl, serviceRoleKey);
   const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const { data: userData, error: userError } = await authClient.auth.getUser();
+  const { data: userData, error: userError } = await authClient.auth.getUser(accessToken);
   if (userError || !userData.user) return json({ error: 'Authentication required' }, 401);
 
   const { data: adminRole } = await supabase
