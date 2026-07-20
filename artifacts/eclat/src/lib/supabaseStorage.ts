@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-type UploadedFile = { path: string; bucket?: string };
+type UploadedFile = { path: string; bucket?: string; publicUrl?: string };
 
 export function getStorageInstance() {
   return supabase.storage;
@@ -15,6 +15,21 @@ export async function uploadBytes(storageRef: { path: string }, file: Blob) {
     ? 'payment-proofs'
     : 'storefront-images';
   const path = storageRef.path.replace(/^payment-screenshots\//, '');
+
+  if (bucket !== 'payment-proofs') {
+    const base64 = await blobToBase64(file);
+    const { data, error } = await supabase.functions.invoke('upload-r2-image', {
+      body: {
+        path,
+        contentType: file.type || 'image/jpeg',
+        base64,
+      },
+    });
+    if (error) throw error;
+    if (!data?.publicUrl) throw new Error('R2 upload did not return a public URL');
+    return { path, bucket: 'r2', publicUrl: data.publicUrl };
+  }
+
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     upsert: false,
     cacheControl: '31536000',
@@ -25,9 +40,20 @@ export async function uploadBytes(storageRef: { path: string }, file: Blob) {
 }
 
 export async function getDownloadURL(uploaded: UploadedFile) {
+  if (uploaded.publicUrl) return uploaded.publicUrl;
   const bucket = uploaded.bucket || 'storefront-images';
   const { data } = supabase.storage.from(bucket).getPublicUrl(uploaded.path);
   return data.publicUrl;
+}
+
+async function blobToBase64(blob: Blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 1) {
+    binary += String.fromCharCode(bytes[index]);
+  }
+  return btoa(binary);
 }
 
 export function dataUrlToBlob(dataUrl: string) {
