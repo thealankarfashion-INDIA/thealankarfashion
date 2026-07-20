@@ -8,6 +8,7 @@ const sourceKey = process.env.SOURCE_SUPABASE_SERVICE_ROLE_KEY;
 const targetUrl = process.env.TARGET_SUPABASE_URL;
 const targetKey = process.env.TARGET_SUPABASE_SERVICE_ROLE_KEY;
 const dryRun = process.argv.includes('--dry-run');
+const preserveUserIds = process.argv.includes('--preserve-user-ids');
 
 if (!sourceUrl || !sourceKey || !targetUrl || !targetKey) {
   console.error('Missing SOURCE_SUPABASE_URL, SOURCE_SUPABASE_SERVICE_ROLE_KEY, TARGET_SUPABASE_URL, or TARGET_SUPABASE_SERVICE_ROLE_KEY.');
@@ -18,6 +19,7 @@ const source = createClient(sourceUrl, sourceKey, { auth: { persistSession: fals
 const target = createClient(targetUrl, targetKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const tableColumns = {
+  admin_roles: ['user_id', 'created_at'],
   products: ['id', 'data', 'created_at', 'updated_at'],
   profiles: ['id', 'user_id', 'data', 'created_at', 'updated_at'],
   categories: ['id', 'data', 'created_at', 'updated_at'],
@@ -63,8 +65,10 @@ function prepareRow(table, row, columns) {
 
   // Auth users are project-local. Preserve JSON data, but avoid FK failures when
   // the same auth user UUID does not exist in the target project yet.
-  for (const column of authScopedColumns.get(table) || []) {
-    next[column] = null;
+  if (!preserveUserIds) {
+    for (const column of authScopedColumns.get(table) || []) {
+      next[column] = null;
+    }
   }
 
   return next;
@@ -78,7 +82,8 @@ async function copyTable(table, columns) {
   let copied = 0;
   for (let index = 0; index < rows.length; index += batchSize) {
     const batch = rows.slice(index, index + batchSize).map((row) => prepareRow(table, row, columns));
-    const { error } = await target.from(table).upsert(batch, { onConflict: 'id' });
+    const conflictColumn = table === 'admin_roles' ? 'user_id' : 'id';
+    const { error } = await target.from(table).upsert(batch, { onConflict: conflictColumn });
     if (error) throw new Error(`${table}: ${error.message}`);
     copied += batch.length;
   }
@@ -90,4 +95,4 @@ for (const [table, columns] of Object.entries(tableColumns)) {
   summary.push(await copyTable(table, columns));
 }
 
-console.log(JSON.stringify({ mode: dryRun ? 'dry-run' : 'copied', summary }, null, 2));
+console.log(JSON.stringify({ mode: dryRun ? 'dry-run' : 'copied', preserveUserIds, summary }, null, 2));
