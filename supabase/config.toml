@@ -1,0 +1,4 @@
+project_id = "opaszigtibugtrxfsufn"
+
+[functions.upload-r2-image]
+verify_jwt = false

@@ -25,7 +25,19 @@ export async function uploadBytes(storageRef: { path: string }, file: Blob) {
         base64,
       },
     });
-    if (error) throw error;
+    if (error) {
+      let message = error.message || 'Image upload failed';
+      const response = (error as { context?: Response }).context;
+      if (response) {
+        try {
+          const details = await response.clone().json() as { error?: string };
+          if (details.error) message = details.error;
+        } catch {
+          // Keep the SDK error when the function does not return JSON.
+        }
+      }
+      throw new Error(message);
+    }
     if (!data?.publicUrl) throw new Error('R2 upload did not return a public URL');
     return { path, bucket: 'r2', publicUrl: data.publicUrl };
   }
