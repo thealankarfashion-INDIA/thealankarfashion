@@ -22,7 +22,7 @@ import { ReferralsSection } from "./sections/ReferralsSection";
 import { RatingsSection } from "./sections/RatingsSection";
 import { SupportSection } from "./sections/SupportSection";
 import { ImageIcon, Gift, Share2, MessageSquare, Truck } from "lucide-react";
-import { isPaidOrder } from "@/lib/orderPayment";
+import { supabase } from "@/lib/supabase";
 
 type Section = "overview" | "mainBanners" | "products" | "categories" | "videos" | "brands" | "offers" | "coupons" | "announcements" | "orders" | "invoices" | "referrals" | "ratings" | "support" | "settings" | "delivery";
 
@@ -197,84 +197,80 @@ function Spark({ data }: { data: number[] }) {
 
 // ─── Overview ─────────────────────────────────────────────────────────────────
 function Overview({ setSection }: { setSection: (s: Section) => void }) {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [products, setProducts] = useState(0);
-  const [referrals, setReferrals] = useState(0);
-  const [ratings, setRatings] = useState({ count: 0, avg: 0 });
+  const [summary, setSummary] = useState({
+    products: 0,
+    referrals: 0,
+    ratings: { count: 0, avg: 0 },
+    orders: {
+      totalCount: 0,
+      paidCount: 0,
+      totalRevenue: 0,
+      thisMonthCount: 0,
+      thisMonthRevenue: 0,
+      lastMonthCount: 0,
+      lastMonthRevenue: 0,
+      statuses: {
+        pending: 0,
+        verifying: 0,
+        processing: 0,
+        shipped: 0,
+        delivered: 0,
+        cancelled: 0,
+      },
+    },
+    lastSevenDays: [] as Array<{ day: string; revenue: number; orders: number }>,
+    recentOrders: [] as Array<{
+      id: string;
+      orderId: string;
+      customerName: string;
+      total: number;
+      status: string;
+    }>,
+  });
 
   useEffect(() => {
-    (async () => {
+    let active = true;
+
+    const loadSummary = async () => {
       try {
-        const { getDB } = await import("@/lib/supabase");
-        const { collection, onSnapshot, query } = await import("@/lib/supabaseStore");
-        const db = getDB();
-        const u1 = onSnapshot(collection(db, "products"), s => setProducts(s.size));
-        const u2 = onSnapshot(query(collection(db, "orders")), s => {
-          const arr = s.docs.map(d => ({ id: d.id, ...d.data() }));
-          arr.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
-          setOrders(arr);
-        });
-        const u3 = onSnapshot(collection(db, "referrals"), s => setReferrals(s.size));
-        const u4 = onSnapshot(collection(db, "appRatings"), s => {
-          const docs = s.docs.map(d => d.data() as any);
-          const avg = docs.length > 0 ? docs.reduce((sum, d) => sum + (d.rating || 0), 0) / docs.length : 0;
-          setRatings({ count: docs.length, avg: parseFloat(avg.toFixed(1)) });
-        });
-        return () => { u1(); u2(); u3(); u4(); };
-      } catch { return undefined; }
-    })();
+        const { data, error } = await supabase.rpc("admin_dashboard_summary");
+        if (error) throw error;
+        if (active && data) {
+          setSummary(current => ({ ...current, ...data }));
+        }
+      } catch (error) {
+        console.error("Failed to load admin dashboard summary:", error);
+      }
+    };
+
+    void loadSummary();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const now = new Date();
-  const paidOrders = orders.filter(isPaidOrder);
-  const totalRev = paidOrders.reduce((s, o) => s + (o.total || 0), 0);
-
-  const inMonth = (o: any, offset = 0) => {
-    const ts = o.createdAt?.toDate?.() || o.createdAt;
-    if (!ts) return false;
-    const d = new Date(ts);
-    const ref = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-    return d.getMonth() === ref.getMonth() && d.getFullYear() === ref.getFullYear();
-  };
-
-  const thisMonth  = paidOrders.filter(o => inMonth(o, 0));
-  const lastMonth  = paidOrders.filter(o => inMonth(o, 1));
-  const thisRev    = thisMonth.reduce((s, o) => s + (o.total || 0), 0);
-  const lastRev    = lastMonth.reduce((s, o) => s + (o.total || 0), 0);
-  const revGrowth  = lastRev > 0 ? ((thisRev - lastRev) / lastRev * 100) : 0;
-  const paidOrdGrowth  = lastMonth.length > 0 ? ((thisMonth.length - lastMonth.length) / lastMonth.length * 100) : 0;
-
-  const dayRevenue = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    return paidOrders.filter(o => {
-      const ts = o.createdAt?.toDate?.() || o.createdAt;
-      return ts && new Date(ts).toDateString() === d.toDateString();
-    }).reduce((s, o) => s + (o.total || 0), 0);
-  });
-
-  const dayOrders = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    return paidOrders.filter(o => {
-      const ts = o.createdAt?.toDate?.() || o.createdAt;
-      return ts && new Date(ts).toDateString() === d.toDateString();
-    }).length;
-  });
-
-  const sc = {
-    pending:      orders.filter(o => o.orderStatus === 'Payment Pending').length,
-    verifying:    orders.filter(o => o.orderStatus === 'Under Verification').length,
-    processing:   orders.filter(o => o.orderStatus === 'Processing').length,
-    shipped:      orders.filter(o => o.orderStatus === 'Shipped').length,
-    delivered:    orders.filter(o => o.orderStatus === 'Delivered').length,
-    cancelled:    orders.filter(o => o.orderStatus === 'Cancelled').length,
-  };
+  const products = Number(summary.products) || 0;
+  const referrals = Number(summary.referrals) || 0;
+  const ratings = summary.ratings;
+  const orderStats = summary.orders;
+  const totalRev = Number(orderStats.totalRevenue) || 0;
+  const thisRev = Number(orderStats.thisMonthRevenue) || 0;
+  const lastRev = Number(orderStats.lastMonthRevenue) || 0;
+  const revGrowth = lastRev > 0 ? ((thisRev - lastRev) / lastRev * 100) : 0;
+  const paidOrdGrowth = orderStats.lastMonthCount > 0
+    ? ((orderStats.thisMonthCount - orderStats.lastMonthCount) / orderStats.lastMonthCount * 100)
+    : 0;
+  const dayRevenue = summary.lastSevenDays.map(day => Number(day.revenue) || 0);
+  const dayOrders = summary.lastSevenDays.map(day => Number(day.orders) || 0);
+  const sc = orderStats.statuses;
   const actionNeeded = sc.pending + sc.verifying;
 
-  const recentOrders = paidOrders.slice(0, 5).map(o => ({
-    id: o.orderId || o.id,
-    customer: o.customerName || 'Unknown',
-    amount: o.total || 0,
-    status: o.orderStatus || 'Pending',
+  const recentOrders = summary.recentOrders.map(order => ({
+    id: order.orderId || order.id,
+    customer: order.customerName || 'Unknown',
+    amount: Number(order.total) || 0,
+    status: order.status || 'Pending',
   }));
 
   const STATUS_LABEL: Record<string, string> = {
@@ -335,8 +331,8 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
             growth: revGrowth, spark: dayRevenue, icon: DollarSign,
           },
           {
-            label: 'Paid Orders', value: paidOrders.length, prefix: '',
-            sub: `${thisMonth.length} this month`,
+            label: 'Paid Orders', value: orderStats.paidCount, prefix: '',
+            sub: `${orderStats.thisMonthCount} this month`,
             growth: paidOrdGrowth, spark: dayOrders, icon: ShoppingCart,
           },
           {
@@ -401,7 +397,7 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
               { label: 'Processing', count: sc.processing },
               { label: 'Action needed', count: actionNeeded },
             ].map((row, i) => {
-              const pct = orders.length > 0 ? Math.round((row.count / orders.length) * 100) : 0;
+              const pct = orderStats.totalCount > 0 ? Math.round((row.count / orderStats.totalCount) * 100) : 0;
               return (
                 <motion.div key={row.label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.32 + i * 0.07 }}>
                   <div className="flex items-center justify-between mb-1.5">
@@ -455,7 +451,7 @@ function Overview({ setSection }: { setSection: (s: Section) => void }) {
             {[
               {
                 label: 'Avg Order Value',
-                value: paidOrders.length > 0 ? `₹${Math.round(totalRev / paidOrders.length).toLocaleString()}` : '—',
+                value: orderStats.paidCount > 0 ? `₹${Math.round(totalRev / orderStats.paidCount).toLocaleString()}` : '—',
                 sec: 'orders' as Section,
               },
               {
