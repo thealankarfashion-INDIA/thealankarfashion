@@ -4,18 +4,28 @@ import { dispatchAppResume, logClientError } from "@/lib/appLifecycle";
 import { supabase } from "@/lib/supabase";
 
 const SESSION_REFRESH_WINDOW_SECONDS = 180;
+const MIN_BACKGROUND_RECOVERY_MS = 5_000;
+const RECOVERY_COOLDOWN_MS = 30_000;
 
 export function useAppLifecycle(queryClient: QueryClient) {
   const hiddenAtRef = useRef<number | null>(null);
   const resumeTimerRef = useRef<number | null>(null);
   const runningRef = useRef(false);
+  const lastRecoveryAtRef = useRef(0);
 
   useEffect(() => {
     const recover = async (reason: string) => {
       if (runningRef.current) return;
-      runningRef.current = true;
       const hiddenMs = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : undefined;
       hiddenAtRef.current = null;
+      const shouldRecover =
+        reason === "online" ||
+        reason === "pageshow-bfcache" ||
+        (hiddenMs !== undefined && hiddenMs >= MIN_BACKGROUND_RECOVERY_MS);
+      if (!shouldRecover || Date.now() - lastRecoveryAtRef.current < RECOVERY_COOLDOWN_MS) return;
+
+      runningRef.current = true;
+      lastRecoveryAtRef.current = Date.now();
 
       try {
         dispatchAppResume(reason, hiddenMs);
@@ -75,13 +85,11 @@ export function useAppLifecycle(queryClient: QueryClient) {
     };
 
     const onPageShow = (event: PageTransitionEvent) => {
-      scheduleRecover(event.persisted ? "pageshow-bfcache" : "pageshow");
+      if (event.persisted) scheduleRecover("pageshow-bfcache");
     };
 
-    const onFocus = () => scheduleRecover("focus");
     const onOnline = () => scheduleRecover("online");
 
-    window.addEventListener("focus", onFocus);
     window.addEventListener("online", onOnline);
     window.addEventListener("pageshow", onPageShow);
     window.addEventListener("error", onError);
@@ -90,7 +98,6 @@ export function useAppLifecycle(queryClient: QueryClient) {
 
     return () => {
       if (resumeTimerRef.current) window.clearTimeout(resumeTimerRef.current);
-      window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("pageshow", onPageShow);
       window.removeEventListener("error", onError);

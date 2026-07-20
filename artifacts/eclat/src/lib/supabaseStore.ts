@@ -54,6 +54,7 @@ const PUBLIC_CACHE_TABLES = new Set([
 ]);
 const STORE_CACHE_PREFIX = 'thealankar:supabase-store:';
 const STORE_CACHE_TTL_MS = 20 * 60 * 1000;
+const pendingReads = new Map<string, Promise<any[]>>();
 
 const tableMap: Record<string, string> = {
   products: 'products',
@@ -121,6 +122,17 @@ function cacheKeyFor(ref: QueryShape | Ref) {
   return `${STORE_CACHE_PREFIX}${ref.table}:${ref.id || 'collection'}`;
 }
 
+function pendingReadKeyFor(ref: QueryShape | Ref) {
+  const queryRef = ref as QueryShape;
+  const canLimitAtSource = !!queryRef.maxRows && (queryRef.filters?.length || 0) === 0;
+  return [
+    ref.table,
+    ref.id || 'collection',
+    ref.parent?.userId || '',
+    canLimitAtSource ? queryRef.maxRows : '',
+  ].join(':');
+}
+
 function readCachedRows(ref: QueryShape | Ref, allowStale = false) {
   if (!cacheAllowedFor(ref)) return null;
 
@@ -160,6 +172,37 @@ function invalidateTableCache(table: string) {
     }
   } catch {
     // Cache invalidation is best-effort.
+  }
+}
+
+function updateTableCacheFromRealtime(table: string, payload: any) {
+  if (!isBrowser() || !PUBLIC_CACHE_TABLES.has(table)) return;
+
+  const changedRow = payload.new && Object.keys(payload.new).length > 0
+    ? payload.new
+    : payload.old;
+  const changedId = changedRow?.id;
+  if (!changedId) {
+    invalidateTableCache(table);
+    return;
+  }
+
+  try {
+    const keys = [
+      `${STORE_CACHE_PREFIX}${table}:collection`,
+      `${STORE_CACHE_PREFIX}${table}:${changedId}`,
+    ];
+    for (const key of keys) {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const cached = JSON.parse(raw) as { savedAt: number; rows: any[] };
+      if (!Array.isArray(cached.rows)) continue;
+      const rows = cached.rows.filter((row: any) => row.id !== changedId);
+      if (payload.eventType !== 'DELETE') rows.push(changedRow);
+      window.localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), rows }));
+    }
+  } catch {
+    invalidateTableCache(table);
   }
 }
 
@@ -260,26 +303,56 @@ function finalizeRows(rows: any[], ref: QueryShape) {
   return result;
 }
 
+function topLevelUserIdFilter(ref: QueryShape | Ref) {
+  if (ref.table !== 'orders') return null;
+  const queryRef = ref as QueryShape;
+  const userFilter = queryRef.filters?.find(
+    (filter) => filter.field === 'userId' && filter.op === '==' && typeof filter.value === 'string'
+  );
+  return userFilter ? String(userFilter.value) : null;
+}
+
 async function fetchRows(ref: QueryShape, forceFresh = false) {
   if (!forceFresh) {
     const cachedRows = readCachedRows(ref);
     if (cachedRows) return finalizeRows(cachedRows, ref);
+
+    if (ref.id) {
+      const collectionRows = readCachedRows({ ...ref, kind: 'collection', id: undefined });
+      const cachedRow = collectionRows?.find((row: any) => row.id === ref.id);
+      if (cachedRow) return finalizeRows([cachedRow], ref);
+    }
   }
 
-  try {
+  const requestKey = pendingReadKeyFor(ref);
+  const existingRequest = pendingReads.get(requestKey);
+  if (existingRequest) return finalizeRows(await existingRequest, ref);
+
+  const canLimitAtSource = !!ref.maxRows && (ref.filters?.length || 0) === 0;
+  const requestPromise = (async () => {
     let request = supabase.from(ref.table).select('*');
     if (ref.id) request = request.eq('id', ref.id);
     if (ref.parent?.userId) request = request.eq('user_id', ref.parent.userId);
+    const userIdFilter = topLevelUserIdFilter(ref);
+    if (userIdFilter) request = request.eq('user_id', userIdFilter);
+    if (canLimitAtSource) request = request.limit(ref.maxRows!);
     const { data, error } = await request;
     if (error) throw error;
-    const rows = data || [];
-    writeCachedRows(ref, rows);
+    return data || [];
+  })();
+  pendingReads.set(requestKey, requestPromise);
+
+  try {
+    const rows = await requestPromise;
+    if (!canLimitAtSource) writeCachedRows(ref, rows);
     return finalizeRows(rows, ref);
   } catch (error) {
     const cachedRows = readCachedRows(ref, true);
     if (!cachedRows) throw error;
 
     return finalizeRows(cachedRows, ref);
+  } finally {
+    if (pendingReads.get(requestKey) === requestPromise) pendingReads.delete(requestKey);
   }
 }
 
@@ -405,13 +478,40 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
   let reconnectTimer: number | null = null;
   let refreshTimer: number | null = null;
   let channel: ReturnType<typeof supabase.channel> | null = null;
+  let latestRows: any[] | null = null;
+
+  const emitRows = (rows: any[]) => {
+    const finalized = finalizeRows(rows, ref as QueryShape);
+    latestRows = finalized;
+    const docs: StoreDoc[] = finalized.map((row: any) => ({
+      id: row.id,
+      data: () => unwrapRow(row),
+      ref: { ...(ref as Ref), id: row.id },
+    }));
+    const row = docs[0];
+    next(asSnapshot(
+      (ref as Ref).kind === 'doc'
+        ? {
+            id: (ref as Ref).id,
+            exists: () => !!row,
+            data: () => row?.data(),
+          }
+        : { docs, empty: docs.length === 0, size: docs.length }
+    ));
+  };
 
   const load = async (forceFresh = false) => {
     try {
       const snapshot = (ref as Ref).kind === 'doc'
         ? await getDoc(ref as Ref, { forceFresh })
         : await getDocs(ref as QueryShape, { forceFresh });
-      if (active) next(asSnapshot(snapshot));
+      if (!active) return;
+      latestRows = 'docs' in snapshot
+        ? snapshot.docs.map((item) => ({ id: item.id, data: item.data() }))
+        : snapshot.exists()
+          ? [{ id: snapshot.id, data: snapshot.data() }]
+          : [];
+      next(asSnapshot(snapshot));
     } catch (err) {
       logClientError('supabase-store-load-failed', err, { table: (ref as Ref).table, id: (ref as Ref).id });
       if (active) error?.(err);
@@ -431,6 +531,31 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
     }, 250);
   };
 
+  const handleRealtimeChange = (payload: any) => {
+    updateTableCacheFromRealtime((ref as Ref).table, payload);
+    if (!active) return;
+
+    // A limited result may need a replacement row after an update or deletion.
+    if (!latestRows || (ref as QueryShape).maxRows) {
+      scheduleLoad();
+      return;
+    }
+
+    const changedRow = payload.new && Object.keys(payload.new).length > 0
+      ? payload.new
+      : payload.old;
+    const changedId = changedRow?.id;
+    if (!changedId) {
+      scheduleLoad();
+      return;
+    }
+    if ((ref as Ref).id && (ref as Ref).id !== changedId) return;
+
+    const rows = latestRows.filter((row: any) => row.id !== changedId);
+    if (payload.eventType !== 'DELETE') rows.push(changedRow);
+    emitRows(rows);
+  };
+
   const scheduleReconnect = () => {
     if (reconnectTimer) window.clearTimeout(reconnectTimer);
     reconnectTimer = window.setTimeout(() => {
@@ -443,9 +568,20 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
 
   const subscribe = () => {
     clearChannel();
+    const changeFilter: any = {
+      event: '*',
+      schema: 'public',
+      table: (ref as Ref).table,
+    };
+    if ((ref as Ref).id) changeFilter.filter = `id=eq.${(ref as Ref).id}`;
+    else {
+      const userIdFilter = topLevelUserIdFilter(ref);
+      if (userIdFilter) changeFilter.filter = `user_id=eq.${userIdFilter}`;
+    }
+
     channel = supabase
       .channel(`store-${(ref as Ref).table}-${(ref as Ref).id || 'all'}-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: (ref as Ref).table }, scheduleLoad)
+      .on('postgres_changes', changeFilter, handleRealtimeChange)
       .subscribe((status) => {
         if (!active) return;
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
