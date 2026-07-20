@@ -2,7 +2,7 @@ const IMAGE_CACHE = "thealankar-image-cache-v2";
 const DATA_CACHE = "thealankar-public-data-cache-v1";
 const MAX_IMAGE_CACHE_ENTRIES = 900;
 const PUBLIC_DATA_TTL_MS = 20 * 60 * 1000;
-const SUPABASE_STORAGE_HOST = "ebojhaqmsocisadjgury.supabase.co";
+const SUPABASE_STORAGE_HOST = "opaszigtibugtrxfsufn.supabase.co";
 const PUBLIC_DATA_TABLES = new Set([
   "products",
   "categories",

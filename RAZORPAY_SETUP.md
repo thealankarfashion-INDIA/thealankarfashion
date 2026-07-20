@@ -8,7 +8,7 @@ Set these in Supabase, not in Vite:
 supabase secrets set RAZORPAY_KEY_ID=...
 supabase secrets set RAZORPAY_KEY_SECRET=...
 supabase secrets set RAZORPAY_WEBHOOK_SECRET=...
-supabase secrets set SUPABASE_URL=https://ebojhaqmsocisadjgury.supabase.co
+supabase secrets set SUPABASE_URL=https://opaszigtibugtrxfsufn.supabase.co
 supabase secrets set SUPABASE_SERVICE_ROLE_KEY=...
 ```
 
@@ -36,7 +36,7 @@ supabase functions deploy razorpay-webhook
 
 Webhook URL format:
 
-`https://ebojhaqmsocisadjgury.supabase.co/functions/v1/razorpay-webhook`
+`https://opaszigtibugtrxfsufn.supabase.co/functions/v1/razorpay-webhook`
 
 Enable at least:
 
