@@ -16,7 +16,7 @@ import { getDB, supabase } from './supabase';
 import type { Order, OrderStatus } from './types';
 
 const ORDERS_COLLECTION = 'orders';
-const STOCK_RESERVATION_MS = 5 * 60 * 1000;
+const STOCK_RESERVATION_MS = 15 * 60 * 1000;
 
 /** Generate a unique order ID like "ECL-A1B2C3" */
 export function generateOrderId(): string {
@@ -35,15 +35,6 @@ function stripUndefined(obj: Record<string, any>): Record<string, any> {
     if (v !== undefined) clean[k] = v;
   }
   return clean;
-}
-
-function asMillis(value: any): number {
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.toDate === 'function') return value.toDate().getTime();
-  if (typeof value.seconds === 'number') return value.seconds * 1000;
-  const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 /** Create a new order in Firestore */
@@ -77,25 +68,11 @@ export async function releaseOrderStock(orderId: string): Promise<boolean> {
   return data === true;
 }
 
-/** Clean up any pending payment reservations that already crossed the 5 minute window. */
+/** Ask the database to restore this user's expired payment reservations. */
 export async function releaseExpiredPaymentPendingOrders(): Promise<number> {
-  const db = getDB();
-  const snap = await getDocs(query(
-    collection(db, ORDERS_COLLECTION),
-    where('orderStatus', '==', 'Payment Pending')
-  ));
-  const now = Date.now();
-  let restored = 0;
-
-  for (const docSnap of snap.docs) {
-    const order = { id: docSnap.id, ...docSnap.data() } as Order;
-    const expiry = asMillis(order.reservationExpiresAt);
-    if (!order.stockRestored && expiry > 0 && expiry <= now) {
-      if (await releaseOrderStock(order.orderId || docSnap.id)) restored += 1;
-    }
-  }
-
-  return restored;
+  const { data, error } = await supabase.rpc('release_expired_order_stock');
+  if (error) throw error;
+  return Number(data) || 0;
 }
 
 /** Update order with payment confirmation (transaction ID + screenshot URL) */
