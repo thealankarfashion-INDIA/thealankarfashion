@@ -260,7 +260,12 @@ function finalizeRows(rows: any[], ref: QueryShape) {
   return result;
 }
 
-async function fetchRows(ref: QueryShape) {
+async function fetchRows(ref: QueryShape, forceFresh = false) {
+  if (!forceFresh) {
+    const cachedRows = readCachedRows(ref);
+    if (cachedRows) return finalizeRows(cachedRows, ref);
+  }
+
   try {
     let request = supabase.from(ref.table).select('*');
     if (ref.id) request = request.eq('id', ref.id);
@@ -308,8 +313,11 @@ export function query(ref: Ref, ...clauses: any[]): QueryShape {
   return q;
 }
 
-export async function getDocs(ref: QueryShape | Ref): Promise<StoreQuerySnapshot> {
-  const rows = await fetchRows(ref as QueryShape);
+export async function getDocs(
+  ref: QueryShape | Ref,
+  options?: { forceFresh?: boolean }
+): Promise<StoreQuerySnapshot> {
+  const rows = await fetchRows(ref as QueryShape, options?.forceFresh);
   const docs: StoreDoc[] = rows.map((row: any) => ({
     id: row.id,
     data: () => unwrapRow(row),
@@ -318,8 +326,11 @@ export async function getDocs(ref: QueryShape | Ref): Promise<StoreQuerySnapshot
   return { docs, empty: docs.length === 0, size: docs.length };
 }
 
-export async function getDoc(ref: Ref): Promise<StoreDocSnapshot> {
-  const rows = await fetchRows(ref);
+export async function getDoc(
+  ref: Ref,
+  options?: { forceFresh?: boolean }
+): Promise<StoreDocSnapshot> {
+  const rows = await fetchRows(ref, options?.forceFresh);
   const row = rows[0];
   return {
     id: ref.id,
@@ -395,9 +406,11 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
   let refreshTimer: number | null = null;
   let channel: ReturnType<typeof supabase.channel> | null = null;
 
-  const load = async () => {
+  const load = async (forceFresh = false) => {
     try {
-      const snapshot = (ref as Ref).kind === 'doc' ? await getDoc(ref as Ref) : await getDocs(ref as QueryShape);
+      const snapshot = (ref as Ref).kind === 'doc'
+        ? await getDoc(ref as Ref, { forceFresh })
+        : await getDocs(ref as QueryShape, { forceFresh });
       if (active) next(asSnapshot(snapshot));
     } catch (err) {
       logClientError('supabase-store-load-failed', err, { table: (ref as Ref).table, id: (ref as Ref).id });
@@ -414,7 +427,7 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
     if (refreshTimer) window.clearTimeout(refreshTimer);
     refreshTimer = window.setTimeout(() => {
       refreshTimer = null;
-      if (active) void load();
+      if (active) void load(true);
     }, 250);
   };
 
@@ -423,7 +436,7 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null;
       if (!active) return;
-      void load();
+      void load(true);
       subscribe();
     }, 500);
   };
@@ -443,7 +456,6 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
   };
 
   const handleResume = () => {
-    void load();
     scheduleReconnect();
   };
 
