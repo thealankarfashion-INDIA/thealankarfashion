@@ -392,6 +392,7 @@ function asSnapshot(snapshot: StoreQuerySnapshot | StoreDocSnapshot): StoreSnaps
 export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot) => void, error?: (err: unknown) => void) {
   let active = true;
   let reconnectTimer: number | null = null;
+  let refreshTimer: number | null = null;
   let channel: ReturnType<typeof supabase.channel> | null = null;
 
   const load = async () => {
@@ -409,6 +410,14 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
     channel = null;
   };
 
+  const scheduleLoad = () => {
+    if (refreshTimer) window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(() => {
+      refreshTimer = null;
+      if (active) void load();
+    }, 250);
+  };
+
   const scheduleReconnect = () => {
     if (reconnectTimer) window.clearTimeout(reconnectTimer);
     reconnectTimer = window.setTimeout(() => {
@@ -423,7 +432,7 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
     clearChannel();
     channel = supabase
       .channel(`store-${(ref as Ref).table}-${(ref as Ref).id || 'all'}-${crypto.randomUUID()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: (ref as Ref).table }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: (ref as Ref).table }, scheduleLoad)
       .subscribe((status) => {
         if (!active) return;
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -447,6 +456,7 @@ export function onSnapshot(ref: QueryShape | Ref, next: (snapshot: StoreSnapshot
   return () => {
     active = false;
     if (reconnectTimer) window.clearTimeout(reconnectTimer);
+    if (refreshTimer) window.clearTimeout(refreshTimer);
     if (typeof window !== 'undefined') {
       window.removeEventListener(APP_RESUME_EVENT, handleResume);
     }
