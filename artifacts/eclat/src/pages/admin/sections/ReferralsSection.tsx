@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, onSnapshot, query, doc, updateDoc, increment, serverTimestamp, getDoc, addDoc, deleteDoc, writeBatch, getDocs } from '@/lib/supabaseStore';
 import { getDB } from '@/lib/supabase';
 import { CheckCircle2, Clock, Users, Gift, Search, AlertCircle, Trash2 } from 'lucide-react';
@@ -19,6 +19,7 @@ interface Referral {
 }
 
 export function ReferralsSection() {
+  const referrerCache = useRef(new Map<string, { email: string; name: string }>());
   const [referrals, setReferrals] = useState<Referral[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -45,11 +46,18 @@ export function ReferralsSection() {
       });
       // Enrich with referrer info
       const enriched = await Promise.all(raw.map(async (r) => {
+        if (r.referrerEmail || r.referrerName) return r;
+        const cached = referrerCache.current.get(r.referrerId);
+        if (cached) {
+          return { ...r, referrerEmail: cached.email, referrerName: cached.name };
+        }
         try {
           const uSnap = await getDoc(doc(db, 'users', r.referrerId));
           if (uSnap.exists()) {
             const u = uSnap.data() as any;
-            return { ...r, referrerEmail: u.email || '', referrerName: u.displayName || '' };
+            const info = { email: u.email || '', name: u.displayName || '' };
+            referrerCache.current.set(r.referrerId, info);
+            return { ...r, referrerEmail: info.email, referrerName: info.name };
           }
         } catch { /* ignore */ }
         return r;

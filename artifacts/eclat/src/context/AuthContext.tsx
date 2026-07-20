@@ -50,9 +50,12 @@ async function processReferral(user: AppUser) {
     const referrerSnap = await getDocs(referrerQuery);
     if (!referrerSnap.empty) {
       const referrerDoc = referrerSnap.docs[0];
+      const referrer = referrerDoc.data() as Record<string, any>;
       if (referrerDoc.id !== user.uid) {
         await addDoc(collection(supabase, 'referrals'), {
           referrerId: referrerDoc.id,
+          referrerEmail: referrer.email || '',
+          referrerName: referrer.displayName || '',
           referredUserId: user.uid,
           referredUserEmail: user.email || '',
           status: 'pending',

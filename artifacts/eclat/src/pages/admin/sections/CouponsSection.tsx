@@ -7,6 +7,7 @@ import { Coupon, assignCouponToUser } from "@/lib/user";
 import { getCouponBannerImage, getCouponIconImage } from "@/lib/coupons";
 import { ConfirmDeleteModal } from "@/components/admin/ConfirmDeleteModal";
 import { uploadImageDataUrl } from "@/lib/supabaseStorage";
+import useStoreProducts from "@/hooks/useStoreProducts";
 
 async function resizeImage(file: File, maxWidth = 400, quality = 0.8): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -33,6 +34,10 @@ async function resizeImage(file: File, maxWidth = 400, quality = 0.8): Promise<s
 }
 
 export function CouponsSection() {
+  const {
+    products: storeProducts,
+    source: productsSource,
+  } = useStoreProducts();
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -57,7 +62,7 @@ export function CouponsSection() {
     freeProductId: "",
   });
 
-  const [products, setProducts] = useState<any[]>([]);
+  const products = productsSource === "database" ? storeProducts : [];
 
   const [assignForm, setAssignForm] = useState({
     couponId: "",
@@ -69,39 +74,10 @@ export function CouponsSection() {
   useEffect(() => {
     const db = getDB();
     const q = query(collection(db, "coupons"));
-    const unsub = onSnapshot(q, async (snap) => {
+    const unsub = onSnapshot(q, (snap) => {
       const arr = snap.docs.map(d => ({ id: d.id, ...d.data() } as Coupon));
       setCoupons(arr);
       setLoading(false);
-
-      // Fetch products for free gift selector
-      getDocs(collection(db, "products")).then(prodSnap => {
-        setProducts(prodSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      }).catch(err => console.error("Failed to load products", err));
-
-      // Auto-cleanup orphaned user coupons (couponId no longer exists in master)
-      const validIds = new Set(arr.map(c => c.id));
-      try {
-        const usersSnap = await getDocs(collection(db, "users"));
-        const batch = writeBatch(db);
-        let batchCount = 0;
-        for (const userDoc of usersSnap.docs) {
-          const userCouponsSnap = await getDocs(collection(db, "users", userDoc.id, "coupons"));
-          userCouponsSnap.docs.forEach(d => {
-            const couponId = (d.data() as any).couponId;
-            if (!validIds.has(couponId)) {
-              batch.delete(d.ref);
-              batchCount++;
-            }
-          });
-        }
-        if (batchCount > 0) {
-          await batch.commit();
-          console.log(`[Admin] Cleaned up ${batchCount} orphaned user coupon(s).`);
-        }
-      } catch (err) {
-        console.error("Orphan cleanup failed:", err);
-      }
     });
     return () => unsub();
   }, []);

@@ -124,12 +124,13 @@ function cacheKeyFor(ref: QueryShape | Ref) {
 
 function pendingReadKeyFor(ref: QueryShape | Ref) {
   const queryRef = ref as QueryShape;
-  const canLimitAtSource = !!queryRef.maxRows && (queryRef.filters?.length || 0) === 0;
   return [
     ref.table,
     ref.id || 'collection',
     ref.parent?.userId || '',
-    canLimitAtSource ? queryRef.maxRows : '',
+    JSON.stringify(queryRef.filters || []),
+    JSON.stringify(queryRef.order || null),
+    queryRef.maxRows || '',
   ].join(':');
 }
 
@@ -304,12 +305,35 @@ function finalizeRows(rows: any[], ref: QueryShape) {
 }
 
 function topLevelUserIdFilter(ref: QueryShape | Ref) {
-  if (ref.table !== 'orders') return null;
+  if (!['orders', 'wallet_transactions', 'app_ratings', 'support_messages'].includes(ref.table)) {
+    return null;
+  }
   const queryRef = ref as QueryShape;
   const userFilter = queryRef.filters?.find(
     (filter) => filter.field === 'userId' && filter.op === '==' && typeof filter.value === 'string'
   );
   return userFilter ? String(userFilter.value) : null;
+}
+
+function applyServerQuery(request: any, ref: QueryShape) {
+  let nextRequest = request;
+  const topLevelUserId = topLevelUserIdFilter(ref);
+
+  for (const filter of ref.filters || []) {
+    if (filter.field === 'userId' && topLevelUserId) continue;
+    const column = `data->>${filter.field}`;
+    nextRequest = filter.op === '!='
+      ? nextRequest.neq(column, filter.value)
+      : nextRequest.eq(column, filter.value);
+  }
+
+  if (ref.order) {
+    nextRequest = nextRequest.order(`data->>${ref.order.field}`, {
+      ascending: ref.order.direction === 'asc',
+    });
+  }
+  if (ref.maxRows) nextRequest = nextRequest.limit(ref.maxRows);
+  return nextRequest;
 }
 
 async function fetchRows(ref: QueryShape, forceFresh = false) {
@@ -328,14 +352,14 @@ async function fetchRows(ref: QueryShape, forceFresh = false) {
   const existingRequest = pendingReads.get(requestKey);
   if (existingRequest) return finalizeRows(await existingRequest, ref);
 
-  const canLimitAtSource = !!ref.maxRows && (ref.filters?.length || 0) === 0;
+  const isPartialCollection = !!ref.filters?.length || !!ref.maxRows;
   const requestPromise = (async () => {
     let request = supabase.from(ref.table).select('*');
     if (ref.id) request = request.eq('id', ref.id);
     if (ref.parent?.userId) request = request.eq('user_id', ref.parent.userId);
     const userIdFilter = topLevelUserIdFilter(ref);
     if (userIdFilter) request = request.eq('user_id', userIdFilter);
-    if (canLimitAtSource) request = request.limit(ref.maxRows!);
+    request = applyServerQuery(request, ref);
     const { data, error } = await request;
     if (error) throw error;
     return data || [];
@@ -344,7 +368,7 @@ async function fetchRows(ref: QueryShape, forceFresh = false) {
 
   try {
     const rows = await requestPromise;
-    if (!canLimitAtSource) writeCachedRows(ref, rows);
+    if (!isPartialCollection) writeCachedRows(ref, rows);
     return finalizeRows(rows, ref);
   } catch (error) {
     const cachedRows = readCachedRows(ref, true);
