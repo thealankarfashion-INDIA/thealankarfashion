@@ -17,8 +17,17 @@ export async function uploadBytes(storageRef: { path: string }, file: Blob) {
   const path = storageRef.path.replace(/^payment-screenshots\//, '');
 
   if (bucket !== 'payment-proofs') {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (sessionError || !accessToken) {
+      throw new Error('Admin session expired. Sign in again before uploading images.');
+    }
+
     const base64 = await blobToBase64(file);
     const { data, error } = await supabase.functions.invoke('upload-r2-image', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: {
         path,
         contentType: file.type || 'image/jpeg',
