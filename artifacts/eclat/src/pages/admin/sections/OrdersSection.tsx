@@ -278,11 +278,16 @@ export function OrdersSection() {
     if (!order.phone) return alert("Customer phone number not available.");
     const msg = generateOrderMessage(order, false);
 
-    // Format phone number to international format, assuming Indian if it's 10 digits without code
-    let phone = order.phone.replace(/[^0-9]/g, '');
+    let phone = String(order.phone).replace(/\D/g, '');
+    if (phone.startsWith('00')) phone = phone.slice(2);
+    if (phone.length === 11 && phone.startsWith('0')) phone = phone.slice(1);
     if (phone.length === 10) phone = `91${phone}`;
 
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
+    if (!/^[1-9]\d{9,14}$/.test(phone)) {
+      return alert(`Customer phone number is invalid: ${order.phone}`);
+    }
+
+    window.open(`https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
   };
 
   const handleEmailNotify = (order: Order) => {
