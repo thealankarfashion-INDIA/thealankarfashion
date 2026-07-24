@@ -480,8 +480,11 @@ export async function updateDoc(ref: Ref, data: Record<string, any>) {
 
 export async function deleteDoc(ref: Ref) {
   if (!ref.id) throw new Error('Cannot delete document without id.');
-  const { error } = await supabase.from(ref.table).delete().eq('id', ref.id);
+  const { data, error } = await supabase.from(ref.table).delete().eq('id', ref.id).select('id');
   if (error) throw error;
+  if (!data?.length) {
+    throw new Error('The record was not deleted. Your account may not have permission.');
+  }
   invalidateTableCache(ref.table);
 }
 

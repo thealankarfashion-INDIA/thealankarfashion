@@ -75,23 +75,24 @@ export function OrdersSection() {
     return matchSearch && matchFilter;
   });
 
-  const handleStatus = async (orderId: string, status: OrderStatus) => {
-    const previousStatus = orders.find(o => o.orderId === orderId)?.orderStatus;
+  const handleStatus = async (order: Order, status: OrderStatus) => {
+    const documentId = order.id || order.orderId;
+    const previousStatus = order.orderStatus;
 
     // Optimistic UI updates for instant feedback
-    setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, orderStatus: status } : o));
-    if (viewOrder?.orderId === orderId) {
+    setOrders(prev => prev.map(o => (o.id || o.orderId) === documentId ? { ...o, orderStatus: status } : o));
+    if ((viewOrder?.id || viewOrder?.orderId) === documentId) {
       setViewOrder(prev => prev ? { ...prev, orderStatus: status } : null);
     }
 
     setUpdating(true);
     try {
-      await updateOrderStatus(orderId, status);
+      await updateOrderStatus(documentId, status);
     } catch (err: any) {
       console.error(err);
       if (previousStatus) {
-        setOrders(prev => prev.map(o => o.orderId === orderId ? { ...o, orderStatus: previousStatus } : o));
-        if (viewOrder?.orderId === orderId) {
+        setOrders(prev => prev.map(o => (o.id || o.orderId) === documentId ? { ...o, orderStatus: previousStatus } : o));
+        if ((viewOrder?.id || viewOrder?.orderId) === documentId) {
           setViewOrder(prev => prev ? { ...prev, orderStatus: previousStatus } : null);
         }
       }
@@ -115,6 +116,7 @@ export function OrdersSection() {
       await deleteDoc(doc(getDB(), "orders", orderToDelete));
     } catch (err: any) {
       console.error("Failed to delete order:", err);
+      alert(err?.message || "Could not delete this order. Please sign in to the admin page again and retry.");
     } finally {
       setIsDeleting(false);
       setDeleteModalOpen(false);
@@ -352,7 +354,7 @@ export function OrdersSection() {
             <td className="px-5 py-3.5">
               <select
                 value={order.orderStatus}
-                onChange={(e) => handleStatus(order.orderId, e.target.value as OrderStatus)}
+                onChange={(e) => handleStatus(order, e.target.value as OrderStatus)}
                 disabled={updating}
                 className={`text-[10px] px-2.5 py-1.5 rounded-full font-medium border-0 outline-none cursor-pointer disabled:opacity-60 ${STATUS_COLORS[order.orderStatus] || "bg-gray-100 text-gray-500"}`}
               >
@@ -364,10 +366,10 @@ export function OrdersSection() {
             <td className="px-5 py-3.5"><div className="flex items-center gap-1 justify-end">
               <button onClick={() => setViewOrder(order)} className="p-2 hover:bg-[#B47A67]/10 rounded-lg transition-colors text-[#8E5E4F]/40 hover:text-[#B47A67]"><Eye className="h-4 w-4" /></button>
               {order.orderStatus === "Under Verification" && <>
-                <button onClick={() => handleStatus(order.orderId, "Verified")} disabled={updating} className="p-2 hover:bg-green-50 rounded-lg transition-colors text-[#8E5E4F]/40 hover:text-green-600"><CheckCircle2 className="h-4 w-4" /></button>
-                <button onClick={() => handleStatus(order.orderId, "Rejected")} disabled={updating} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-[#8E5E4F]/40 hover:text-red-500"><XCircle className="h-4 w-4" /></button>
+                <button onClick={() => handleStatus(order, "Verified")} disabled={updating} className="p-2 hover:bg-green-50 rounded-lg transition-colors text-[#8E5E4F]/40 hover:text-green-600"><CheckCircle2 className="h-4 w-4" /></button>
+                <button onClick={() => handleStatus(order, "Rejected")} disabled={updating} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-[#8E5E4F]/40 hover:text-red-500"><XCircle className="h-4 w-4" /></button>
               </>}
-              <button onClick={() => handleDeleteOrder(order.orderId)} disabled={updating} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-[#8E5E4F]/40 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
+              <button onClick={() => handleDeleteOrder(order.id || order.orderId)} disabled={updating} className="p-2 hover:bg-red-50 rounded-lg transition-colors text-[#8E5E4F]/40 hover:text-red-500"><Trash2 className="h-4 w-4" /></button>
             </div></td>
           </motion.tr>
         ))}
@@ -588,7 +590,7 @@ export function OrdersSection() {
                     value={viewOrder.orderStatus}
                     onChange={(e) => {
                       const newStatus = e.target.value as OrderStatus;
-                      handleStatus(viewOrder.orderId, newStatus);
+                      handleStatus(viewOrder, newStatus);
                     }}
                     disabled={updating}
                     className="flex-1 px-4 py-3 bg-[#F7F1EE] border border-[#E8D8D1] rounded-xl text-sm text-[#8E5E4F] outline-none focus:border-[#B47A67] transition-colors disabled:opacity-60"
